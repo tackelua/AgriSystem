@@ -1,0 +1,122 @@
+﻿
+#region HUB & SERVER MQTT
+Để giảm tải cho Server, tất cả các thông tin trao đổi giữa Server và HUB đều thông qua 1 topic duy nhất cho mỗi một Hub riêng biệt theo ID của HUB.
+Các kiểu lệnh được phân biệt trong nội dung json
+
+Topic: "/AGRISYSTEM/<HUB_ID>"
+
+enum COMMAND_TYPE {
+	S2H_CONTROL_RELAY = 0,
+	S2H_GET_HUB_STATUS,
+	S2H_GET_SENSOR_DATA,
+	
+	H2S_UPDATE_HUB_STATUS
+	H2S_UPDATE_NODE_DATA
+}
+enum NODE_TYPE {
+	NODE_S1_TEMP_HUMI_RELAY,
+	NODE_S2_LIGHT_RELAY
+};
+
+- Server gửi lệnh điều khiển cho Hub
+/*
+	R1, R2, R3, R4 tên Relays
+	Không cần gửi hết 4 cái một lần, muốn điều khiển cái nào thì thêm cái đó vào.
+*/
+	{
+		"CMD_T":S2H_CONTROL_RELAY,
+		"R1":"ON",
+		"R2":"OFF",
+		"R3":"ON",
+		"R4":"OFF"
+	}
+
+	Hub Response:
+	{
+		"CMD_T":H2S_UPDATE_HUB_STATUS,
+		"HID":"<HUB_ID>",
+		"R1":"ON",
+		"R2":"OFF",
+		"R3":"ON",
+		"R4":"OFF"
+	}
+	
+- Lấy trạng thái của HUB
+	{
+		"CMD_T":S2H_GET_HUB_STATUS,
+	}
+
+	Hub Response:
+	{
+		"CMD_T":H2S_UPDATE_HUB_STATUS,
+		"HID":"<HUB_ID>",
+		"R1":"ON",
+		"R2":"OFF",
+		"R3":"ON",
+		"R4":"OFF"
+	}
+	
+- Lấy thông tin Sensor
+	{
+		"CMD_T":S2H_GET_SENSOR_DATA,
+		"NID":"<Node Sensor ID>"
+	}
+	
+	Hub Response:
+	{
+		"CMD_T":H2S_UPDATE_NODE_DATA,
+		"HID":"<HUB_ID>",
+		"NID":"<Node Sensor ID>",
+		"NODE_T":node_type, //Phần data của node phụ thuộc vào "node_type"
+		"TEMP":temp,
+		"HUMI":humi,
+		"RL_STT": "ON"		//Relay Status: ON/OFF
+	}
+
+#end region
+
+#region HUB & CLIENT NODE
+- Khi cắm Hub kết nối với các Client Node (module gắn ngoài: sensors, trạm quan trắc)
+
+enum COMMAND_TYPE {
+	N2H_REGISTER_NEW_NODE,
+	H2N_INFO_RESPONSE,
+	N2H_DATA_FROM_SENSORS,
+	H2N_GET_DATA,
+	
+}
+
+- Node gửi thông tin đăng kí đến Hub gồm kiểu module, Module ID
+	{
+		"CMD_T" : N2H_REGISTER_NEW_NODE,
+		"NODE_T" : Node_t,	//node type
+		"NID": "",			//node id
+		"GCS": ""			//Gith checksum
+	}
+	
+	Hub Response:
+	{
+		"CMD_T" : H2N_INFO_RESPONSE,
+		"RF_ADDR": "",		//rf address
+		"RF_CHN": "",		//rf channel
+		"GCS": ""			//Gith checksum
+	}
+
+- Hub gửi request đến CM để get data
+	{
+		"CMD_T" :H2N_GET_DATA,
+		"NID":"",
+		"GCS":""			//Gith checksum
+	}
+
+- Gửi Data sensor từ Client Module 
+	{
+		"CMD_T" :N2H_DATA_FROM_SENSORS,
+		"NID":"",			//node id
+		"TEMP"  :"",		//temp
+		"HUMI"  :"",		//humidity
+		"RL_STT":"ON",		//relay status
+		"GCS":""			//Gith checksum
+	}
+
+#end region
