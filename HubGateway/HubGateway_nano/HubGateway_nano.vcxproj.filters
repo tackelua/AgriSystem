@@ -19,10 +19,10 @@
     <None Include="communicate_functions.ino" />
     <None Include="functions_helper.ino" />
     <None Include="RF24.ino" />
-    <None Include="MICHub Schematic Prints.pdf">
+    <None Include="..\MICHub Schematic Prints.pdf">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="MICHub Display Schematic Prints.pdf">
+    <None Include="..\MICHub Display Schematic Prints.pdf">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>
@@ -33,7 +33,7 @@
     <ClInclude Include="GithChecksum.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="hardware.h">
+    <ClInclude Include="..\hardware.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -41,7 +41,7 @@
     <ClCompile Include="GithChecksum.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="hardware.cpp">
+    <ClCompile Include="..\hardware.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

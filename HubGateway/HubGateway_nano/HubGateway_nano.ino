@@ -53,6 +53,8 @@ struct node_t {
 	float humi;
 	String relay;
 };
+
+
 SoftwareSerial ESP_Serial(ESP_SERIAL_RX, ESP_SERIAL_TX);
 enum esp_command_code {
 	REGISTER_TOPIC = 10,
@@ -70,8 +72,7 @@ void setup() {
 #endif
 #endif
 
-	pinMode(A0, OUTPUT);
-	digitalWrite(A0, HIGH);
+	hardware_init();
 
 	radio_init();
 	DB(gcs_calc("abc"));
@@ -81,6 +82,10 @@ void setup() {
 void loop() {
 	//check_config_Serial();
 	transfer_serial_radio();
+
+	if (readButtons() != NO_BUTTON) {
+		Serial.println(readButtons());
+	}
 }
 
 void transfer_serial_radio() {
