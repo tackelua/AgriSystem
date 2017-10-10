@@ -1,0 +1,38 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.26730.12
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HubGateway_esp", "HubGateway_esp\HubGateway_esp.vcxproj", "{C5F80730-F44F-4478-BDAE-6634EFC2CA88}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HubGateway_nano", "HubGateway_nano\HubGateway_nano.vcxproj", "{4AB52837-026C-49AC-B3C4-1707701E71D4}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Resource Files", "Resource Files", "{A4D5A724-EEE3-47DD-9D87-E9C5C3C4951A}"
+	ProjectSection(SolutionItems) = preProject
+		MICHub Display Schematic Prints.pdf = MICHub Display Schematic Prints.pdf
+		MICHub Schematic Prints.pdf = MICHub Schematic Prints.pdf
+		TRONG_DAT_APIs.txt = TRONG_DAT_APIs.txt
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Debug|x86.ActiveCfg = Debug|Win32
+		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Debug|x86.Build.0 = Debug|Win32
+		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Release|x86.ActiveCfg = Release|Win32
+		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Release|x86.Build.0 = Release|Win32
+		{4AB52837-026C-49AC-B3C4-1707701E71D4}.Debug|x86.ActiveCfg = Debug|Win32
+		{4AB52837-026C-49AC-B3C4-1707701E71D4}.Debug|x86.Build.0 = Debug|Win32
+		{4AB52837-026C-49AC-B3C4-1707701E71D4}.Release|x86.ActiveCfg = Release|Win32
+		{4AB52837-026C-49AC-B3C4-1707701E71D4}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {6E9725E9-E477-4366-9B7E-A354825A418A}
+	EndGlobalSection
+EndGlobal

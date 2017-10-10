@@ -11,7 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{C5F80730-F44F-4478-BDAE-6634EFC2CA88}</ProjectGuid>
+    <ProjectGuid>{4AB52837-026C-49AC-B3C4-1707701E71D4}</ProjectGuid>
     <RootNamespace>
     </RootNamespace>
     <ProjectName>HubGateway_nano</ProjectName>
@@ -48,10 +48,10 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\HubGateway_nano;$(ProjectDir)..\..\..\..\..\Documents\Arduino\libraries\ArduinoJson\src;$(ProjectDir)..\..\..\..\..\Documents\Arduino\libraries\RF24-master;$(ProjectDir)..\..\..\..\..\Documents\Arduino\libraries\RF24-master\utility;$(ProjectDir)..\..\..\..\..\..\..\Program Files (x86)\Arduino\libraries;$(ProjectDir)..\..\..\..\..\..\..\Program Files (x86)\Arduino\hardware\esp8266com\esp8266\libraries;$(ProjectDir)..\..\..\..\..\Documents\Arduino\libraries;$(ProjectDir)..\..\..\..\..\..\..\Program Files (x86)\Arduino\hardware\esp8266com\esp8266\cores\esp8266;$(ProjectDir)..\..\..\..\..\..\..\Program Files (x86)\Arduino\hardware\esp8266com\esp8266\cores\esp8266\libb64;$(ProjectDir)..\..\..\..\..\..\..\Program Files (x86)\Arduino\hardware\esp8266com\esp8266\cores\esp8266\spiffs;$(ProjectDir)..\..\..\..\..\..\..\Program Files (x86)\Arduino\hardware\esp8266com\esp8266\cores\esp8266\umm_malloc;$(ProjectDir)..\..\..\..\..\..\..\Program Files (x86)\Arduino\hardware\esp8266com\esp8266\variants\d1;$(ProjectDir)..\..\..\..\..\..\..\Program Files (x86)\Arduino\hardware\esp8266com\esp8266\tools\sdk\include;$(ProjectDir)..\..\..\..\..\..\..\Program Files (x86)\Arduino\hardware\esp8266com\esp8266\tools\sdk\lwip\include;$(ProjectDir)..\..\..\..\..\..\..\Program Files (x86)\Arduino\hardware\esp8266com\esp8266\tools\sdk\libc\xtensa-lx106-elf\include;$(ProjectDir)..\..\..\..\..\..\..\Program Files (x86)\Arduino\hardware\esp8266com\esp8266\tools\xtensa-lx106-elf\xtensa-lx106-elf\include\c++\4.8.2;$(ProjectDir)..\..\..\..\..\..\..\Program Files (x86)\Arduino\hardware\esp8266com\esp8266\tools\xtensa-lx106-elf\xtensa-lx106-elf\include\c++\4.8.2\xtensa-lx106-elf;$(ProjectDir)..\..\..\..\..\..\..\Program Files (x86)\Arduino\hardware\esp8266com\esp8266\tools\xtensa-lx106-elf\xtensa-lx106-elf\include;$(ProjectDir)..\..\..\..\..\..\..\Program Files (x86)\Arduino\hardware\esp8266com\esp8266\tools\xtensa-lx106-elf\lib\gcc\xtensa-lx106-elf\4.8.2\include;$(ProjectDir)..\..\..\..\..\..\..\Program Files (x86)\Arduino\hardware\esp8266com\esp8266\tools\sdk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\HubGateway_nano;$(ProjectDir)..\..\..\..\..\..\AppData\Local\arduino15\packages\arduino\hardware\avr\1.6.20\libraries\SoftwareSerial\src;$(ProjectDir)..\..\..\..\..\..\Documents\Arduino\libraries\RF24-master;$(ProjectDir)..\..\..\..\..\..\Documents\Arduino\libraries\ArduinoJson\src;$(ProjectDir)..\..\..\..\..\..\AppData\Local\arduino15\packages\arduino\hardware\avr\1.6.20\libraries\SPI\src;$(ProjectDir)..\..\..\..\..\..\Documents\Arduino\libraries\RF24-master\utility;$(ProjectDir)..\..\..\..\..\..\..\..\Program Files (x86)\Arduino\libraries;$(ProjectDir)..\..\..\..\..\..\AppData\Local\arduino15\packages\arduino\hardware\avr\1.6.20\libraries;$(ProjectDir)..\..\..\..\..\..\Documents\Arduino\libraries;$(ProjectDir)..\..\..\..\..\..\AppData\Local\arduino15\packages\arduino\hardware\avr\1.6.20\cores\arduino;$(ProjectDir)..\..\..\..\..\..\AppData\Local\arduino15\packages\arduino\hardware\avr\1.6.20\variants\eightanaloginputs;$(ProjectDir)..\..\HubGateway;$(ProjectDir)..\..\..\..\..\..\AppData\Local\arduino15\packages\arduino\tools\avr-gcc\4.9.2-atmel3.5.4-arduino2\avr\include\;$(ProjectDir)..\..\..\..\..\..\AppData\Local\arduino15\packages\arduino\tools\avr-gcc\4.9.2-atmel3.5.4-arduino2\avr\include\avr\;$(ProjectDir)..\..\..\..\..\..\AppData\Local\arduino15\packages\arduino\tools\avr-gcc\4.9.2-atmel3.5.4-arduino2\lib\gcc\avr\4.8.1\include;$(ProjectDir)..\..\..\..\..\..\AppData\Local\arduino15\packages\arduino\tools\avr-gcc\4.9.2-atmel3.5.4-arduino2\lib\gcc\avr\4.9.2\include;$(ProjectDir)..\..\..\..\..\..\AppData\Local\arduino15\packages\arduino\tools\avr-gcc\4.9.2-atmel3.5.4-arduino2\lib\gcc\avr\4.9.3\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>$(ProjectDir)__vm\.HubGateway_nano.vsarduino.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
-      <PreprocessorDefinitions>__ESP8266_ESp8266__;__ESP8266_ESP8266__;__ets__;ICACHE_FLASH;F_CPU=80000000L;LWIP_OPEN_SRC;ARDUINO=10802;ARDUINO_ESP8266_WEMOS_D1MINI;ARDUINO_ARCH_ESP8266;ESP8266;__cplusplus=201103L;_VMICRO_INTELLISENSE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>__AVR_ATmega328p__;__AVR_ATmega328P__;F_CPU=16000000L;ARDUINO=10802;ARDUINO_AVR_NANO;ARDUINO_ARCH_AVR;__cplusplus=201103L;_VMICRO_INTELLISENSE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -79,8 +79,6 @@
     <ProjectCapability Include="VisualMicro" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\MICHub Display Schematic Prints.pdf" />
-    <None Include="..\MICHub Schematic Prints.pdf" />
     <None Include="communicate_functions.ino">
       <FileType>CppCode</FileType>
     </None>
@@ -104,9 +102,6 @@
   <ItemGroup>
     <ClCompile Include="..\hardware.cpp" />
     <ClCompile Include="GithChecksum.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <Text Include="..\TRONG_DAT_APIs.txt" />
   </ItemGroup>
   <PropertyGroup>
     <DebuggerFlavor>VisualMicroDebugger</DebuggerFlavor>

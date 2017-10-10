@@ -16,12 +16,22 @@
 #define R3			"R3"
 #define R4			"R4"
 
-void esp_send(esp_command_code ECC, String data);
-void esp_send(esp_command_code ECC, String data) {
-	ESP_Serial.println(F(">"));
-	ESP_Serial.println(ECC);
-	ESP_Serial.println(data);
-	ESP_Serial.println();
+void core_send(core_command_code CCCode, String data);
+void core_send(core_command_code CCCode, String data) {
+	//CORE_SERIAL.println(F(">"));
+	//CORE_SERIAL.println(CCCode);
+	//CORE_SERIAL.println(data);
+	//CORE_SERIAL.println();
+	
+	DynamicJsonBuffer jsBuffer(100);
+	JsonObject& jsCore = jsBuffer.createObject();
+	jsCore["C"] = int(CCCode);
+	jsCore["D"] = data;
+	String js_send;
+	jsCore.printTo(js_send);
+	CORE_SERIAL.print(js_send);
+	DB(js_send);
+
 }
 
 void H2N_getData(String node_id) {
@@ -31,9 +41,9 @@ void H2N_getData(String node_id) {
 	js2RF[NID] = node_id;
 	js2RF[GCS] = gcs_calc(String(H2N_GET_DATA) + node_id + Githkey);
 
-	String js_sent;
-	js2RF.printTo(js_sent);
-	radio_send(js_sent);
+	String js_send;
+	js2RF.printTo(js_send);
+	radio_send(js_send);
 }
 
 void H2N_infoResponse() {
@@ -47,9 +57,9 @@ void H2N_infoResponse() {
 	String gcs = gcs_calc(gcsHashString);
 	js2RF[GCS] = gcs;
 
-	String js_sent;
-	js2RF.printTo(js_sent);
-	radio_send(js_sent);
+	String js_send;
+	js2RF.printTo(js_send);
+	radio_send(js_send);
 }
 void H2S_updateHubStatus() {
 	String RL_STT_1 = (relayStt_1 == RL_ON ? ON : OFF);
@@ -66,9 +76,9 @@ void H2S_updateHubStatus() {
 	js2RF[R4] = RL_STT_4;
 	js2RF[GCS] = gcs_calc(String(H2S_UPDATE_HUB_STATUS) + RL_STT_1 + RL_STT_2 + RL_STT_3 + RL_STT_4 + Githkey);
 
-	String js_sent;
-	js2RF.printTo(js_sent);
-	esp_send(SEND_TO_SERVER, js_sent);
+	String js_send;
+	js2RF.printTo(js_send);
+	core_send(SEND_TO_SERVER, js_send);
 }
 
 
@@ -83,9 +93,9 @@ void H2S_updateNodeData(node_t node_id) {
 	js2RF[RL_STT] = node_id.relay;
 	js2RF[GCS] = gcs_calc(String(H2S_UPDATE_NODE_DATA) + HUB_ID + node_id.id + String(node_id.type) + node_id.relay + Githkey);
 
-	String js_sent;
-	js2RF.printTo(js_sent);
-	esp_send(SEND_TO_SERVER, js_sent);
+	String js_send;
+	js2RF.printTo(js_send);
+	core_send(SEND_TO_SERVER, js_send);
 }
 
 extern String mqtt_received;
@@ -151,5 +161,26 @@ void handle_radio_received() {
 	}
 	default:
 		break;
+	}
+}
+
+
+//
+
+void transfer_serial_radio() {
+	if (Serial.available()) {
+		radio_send(Serial.readString());
+	}
+	if (radio_available()) {
+		Serial.println(radio_received);
+		CORE_SERIAL.print(radio_received);
+	}
+}
+
+void transfer_button_press() {
+	int btn = readButtons();
+	if (btn != NO_BUTTON) {
+		DB(btn);
+		core_send(SEND_BUTTON_PRESS, String(readButtons()));
 	}
 }

@@ -6,17 +6,10 @@
 #include <nRF24L01.h>
 #include <RF24.h>
 
-#define DB(x) Serial.println(x)
-#define Db(x) Serial.print(x)
 
-
-//#if defined(ARDUINO_AVR_MEGA2560)
-//#define CSN 53
-//#else
-//#if defined(ARDUINO_AVR_NANO)
-//#define CSN 10
-//#endif
-//#endif
+#define DEBUG	Serial
+#define DB(x)	DEBUG.println(x)
+#define Db(x)	DEBUG.print(x)
 
 String HUB_ID;
 
@@ -54,45 +47,32 @@ struct node_t {
 	String relay;
 };
 
-
-SoftwareSerial ESP_Serial(ESP_SERIAL_RX, ESP_SERIAL_TX);
-enum esp_command_code {
-	REGISTER_TOPIC = 10,
-	SEND_TO_SERVER
-};
+SoftwareSerial CORE_SERIAL(CORE_SERIAL_RX, CORE_SERIAL_TX);
 
 void setup() {
-	Serial.begin(115200);
-	Serial.setTimeout(100);
+	delay(10);
+	DEBUG.begin(115200);
+	DEBUG.setTimeout(10);
+
+	CORE_SERIAL.begin(9600);
+	CORE_SERIAL.setTimeout(20);
+
 #if defined(ARDUINO_AVR_MEGA2560)
 	Serial.println(F("Hi I am Mega"));
 #else
 #if defined(ARDUINO_AVR_NANO)
-	Serial.println(F("Hi I am Nano"));
+	Serial.println(F("\r\n### N A N O ###"));
 #endif
 #endif
 
 	hardware_init();
 
 	radio_init();
-	DB(gcs_calc("abc"));
-	H2N_infoResponse();
 }
 
 void loop() {
 	//check_config_Serial();
 	transfer_serial_radio();
+	transfer_button_press();
 
-	if (readButtons() != NO_BUTTON) {
-		Serial.println(readButtons());
-	}
-}
-
-void transfer_serial_radio() {
-	if (Serial.available()) {
-		radio_send(Serial.readString());
-	}
-	if (radio_available()) {
-		Serial.println(radio_received);
-	}
 }

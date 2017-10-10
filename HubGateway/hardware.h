@@ -13,8 +13,8 @@
 	#define CONFIG_SERIAL	Serial
 	#define CONFIG_SEN	A7
 
-	#define ESP_SERIAL_TX	8
-	#define ESP_SERIAL_RX	7
+	#define CORE_SERIAL_TX	8
+	#define CORE_SERIAL_RX	7
 
 	#define NRF_CSN		9
 	#define NRF_CE		10
@@ -46,6 +46,20 @@
 
 #endif // ARDUINO_AVR_NANO
 
+#ifdef ARDUINO_ARCH_ESP8266
+	#define LED_STATUS D3
+
+	#define CORE_SERIAL_TX	D2
+	#define CORE_SERIAL_RX	D1
+
+	#define LCD_CLK	D0
+	#define LCD_DIN	D5
+	#define LCD_DC	D6
+	#define LCD_CE	D7
+	#define LCD_RST	D4
+#endif // ARDUINO_ARCH_ESP8266
+
+
 void hardware_init();
 
 enum button_t {
@@ -65,5 +79,10 @@ enum Node_t {
 
 };
 
+enum core_command_code {
+	REGISTER_TOPIC = 10,
+	SEND_TO_SERVER,
+	SEND_BUTTON_PRESS
+};
 #endif
 

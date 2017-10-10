@@ -27,6 +27,12 @@ void hardware_init() {
 	pinMode(CONFIG_SEN, INPUT);
 	pinMode(BUTTONS, INPUT);
 	pinMode(LCD_LIGHT, OUTPUT);
-
+	digitalWrite(LCD_LIGHT, LOW);
 #endif // ARDUINO_AVR_NANO
+
+#ifdef ARDUINO_ARCH_ESP8266
+	pinMode(LED_STATUS, OUTPUT);
+	digitalWrite(LED_STATUS, LOW);
+#endif // ARDUINO_ARCH_ESP8266
+
 }
