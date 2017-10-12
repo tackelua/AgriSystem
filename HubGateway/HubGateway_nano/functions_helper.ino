@@ -57,6 +57,7 @@ int readButtons() {
 	int val = analogRead(BUTTONS);
 	static button_t but_last = NO_BUTTON;
 	static button_t but_now;
+	static button_t last_button_return;
 	/*
 		LEFT == 166;
 		DOWN == 200;
@@ -92,7 +93,10 @@ int readButtons() {
 		but_last = but_now;
 	}
 	else if ((millis() - t_lastChange) > debound_time) {
-		return but_now;
+		if (last_button_return != but_now) {
+			last_button_return = but_now;
+			return last_button_return;
+		}
 	}
 	return NO_BUTTON;
 }

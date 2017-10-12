@@ -1,18 +1,8 @@
 ﻿uint64_t RF_PIPE = 0xE8E8F0F0E1LL;
 uint8_t RF_CHANNEL = 14;
 
-enum COMMAND_TYPE {
-	NODE_REGISTER = 0,	//serial
-	NODE_SEND_DATA,		//rf node to hub
-
-	HUB_SEND_CONFIG,	//serial
-	HUB_GET_DATA		//rf hub to node
-
-
-
-};
-
-void radio_init() {
+void radio_init()
+{
 	radio_received.reserve(200);
 	radio.begin();
 	radio.setAutoAck(true);
@@ -28,7 +18,8 @@ void radio_init() {
 	DB("Started");
 }
 
-bool radio_available() {
+bool radio_available()
+{
 	static unsigned long _timeout = 50;
 	radio_received = "";
 	char buffer[33];
@@ -38,11 +29,14 @@ bool radio_available() {
 			radio.read(buffer, 32);
 			buffer[32] = '\0';
 			radio_received += buffer;
-			for (byte i = 0; i < _timeout; i++) {
-				if (!radio.available()) {
+			for (byte i = 0; i < _timeout; i++) 
+			{
+				if (!radio.available()) 
+				{
 					delay(1);
 				}
-				else {
+				else
+				{
 					continue;
 				}
 			}
@@ -54,7 +48,8 @@ bool radio_available() {
 	return false;
 }
 
-void radio_send(String data) {
+void radio_send(String data)
+{
 	String buffer = data;
 	//int segment_i = 0;
 	radio.stopListening();
@@ -69,7 +64,8 @@ void radio_send(String data) {
 		//DB(segment);
 		radio.write(segment.c_str(), 32);
 	}
-	if ((0 < buffer.length()) && (buffer.length() <= 32)) {
+	if ((0 < buffer.length()) && (buffer.length() <= 32))
+	{
 		//Db("Segment");
 		//Db(segment_i++);
 		//Db("\t[");
@@ -85,11 +81,14 @@ void radio_send(String data) {
 	DB(data);
 }
 
-void transfer_serial_radio() {
-	if (Serial.available()) {
+void transfer_serial_radio()
+{
+	if (Serial.available())
+	{
 		radio_send(Serial.readString());
 	}
-	if (radio_available()) {
+	if (radio_available())
+	{
 		Serial.println(radio_received);
 	}
 }

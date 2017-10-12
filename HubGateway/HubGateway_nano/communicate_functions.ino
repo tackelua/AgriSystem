@@ -1,20 +1,4 @@
-#define Githkey		"Gith"
-#define CMD_T		"CMD_T"
-#define NODE_T		"NODE_T"
-#define NID			"NID"
-#define TEMP		"TEMP"
-#define HUMI		"HUMI"
-#define RL_STT		"RL_STT"
-#define GCS			"GCS"
-#define RF_ADDR		"RF_ADDR"
-#define RF_CHN		"RF_CHN"
-#define ON			"ON"
-#define OFF			"OFF"
-#define HID			"HID"
-#define R1			"R1"
-#define R2			"R2"
-#define R3			"R3"
-#define R4			"R4"
+
 
 void core_send(core_command_code CCCode, String data);
 void core_send(core_command_code CCCode, String data) {
@@ -25,8 +9,8 @@ void core_send(core_command_code CCCode, String data) {
 	
 	DynamicJsonBuffer jsBuffer(100);
 	JsonObject& jsCore = jsBuffer.createObject();
-	jsCore["C"] = int(CCCode);
-	jsCore["D"] = data;
+	jsCore[CMD_T] = int(CCCode);
+	jsCore[DATA] = data;
 	String js_send;
 	jsCore.printTo(js_send);
 	CORE_SERIAL.print(js_send);
@@ -78,7 +62,7 @@ void H2S_updateHubStatus() {
 
 	String js_send;
 	js2RF.printTo(js_send);
-	core_send(SEND_TO_SERVER, js_send);
+	core_send(CC_SEND_TO_SERVER, js_send);
 }
 
 
@@ -95,7 +79,7 @@ void H2S_updateNodeData(node_t node_id) {
 
 	String js_send;
 	js2RF.printTo(js_send);
-	core_send(SEND_TO_SERVER, js_send);
+	core_send(CC_SEND_TO_SERVER, js_send);
 }
 
 extern String mqtt_received;
@@ -177,10 +161,15 @@ void transfer_serial_radio() {
 	}
 }
 
-void transfer_button_press() {
+void transfer_button_status() {
 	int btn = readButtons();
 	if (btn != NO_BUTTON) {
 		DB(btn);
-		core_send(SEND_BUTTON_PRESS, String(readButtons()));
+		core_send(CC_SEND_BUTTON_PRESS, String(btn));
+	}
+
+	if (btn == BACK)
+	{
+		digitalWrite(LCD_LIGHT, !digitalRead(LCD_LIGHT));
 	}
 }

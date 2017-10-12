@@ -9,6 +9,11 @@
 	#include "WProgram.h"
 #endif
 
+#define DEBUG	Serial
+#define DB(x)	DEBUG.println(x)
+#define Db(x)	DEBUG.print(x)
+//#define db		DEBUG.printf
+
 #ifdef ARDUINO_AVR_NANO
 	#define CONFIG_SERIAL	Serial
 	#define CONFIG_SEN	A7
@@ -80,9 +85,56 @@ enum Node_t {
 };
 
 enum core_command_code {
-	REGISTER_TOPIC = 10,
-	SEND_TO_SERVER,
-	SEND_BUTTON_PRESS
+	CC_SEND_TO_SERVER = 0,
+	CC_SEND_BUTTON_PRESS
 };
+
+enum COMMAND_TYPE
+{
+	S2H_CONTROL_RELAY = 0,
+	S2H_GET_HUB_STATUS,
+	S2H_GET_SENSOR_DATA,
+
+	H2S_UPDATE_HUB_STATUS = 10,
+	H2S_UPDATE_NODE_DATA,
+
+	N2H_REGISTER_NEW_NODE,
+	N2H_DATA_FROM_SENSORS,
+	H2N_INFO_RESPONSE,			//
+	H2N_GET_DATA				//
+};
+
+enum NODE_TYPE
+{
+	NODE_S1_TEMP_HUMI_RELAY,
+	NODE_S2_LIGHT_RELAY
+};
+struct node_t
+{
+	NODE_TYPE type;
+	String id;
+	float temp;
+	float humi;
+	String relay;
+};
+
+#define Githkey		"Gith"
+#define CMD_T		"CMD_T"
+#define NODE_T		"NODE_T"
+#define NID			"NID"
+#define TEMP		"TEMP"
+#define HUMI		"HUMI"
+#define RL_STT		"RL_STT"
+#define GCS			"GCS"
+#define RF_ADDR		"RF_ADDR"
+#define RF_CHN		"RF_CHN"
+#define ON			"ON"
+#define OFF			"OFF"
+#define HID			"HID"
+#define R1			"R1"
+#define R2			"R2"
+#define R3			"R3"
+#define R4			"R4"
+#define DATA		"DATA"
 #endif
 

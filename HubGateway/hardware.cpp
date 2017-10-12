@@ -32,7 +32,7 @@ void hardware_init() {
 
 #ifdef ARDUINO_ARCH_ESP8266
 	pinMode(LED_STATUS, OUTPUT);
-	digitalWrite(LED_STATUS, LOW);
+	digitalWrite(LED_STATUS, HIGH);
 #endif // ARDUINO_ARCH_ESP8266
 
 }

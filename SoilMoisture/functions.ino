@@ -50,37 +50,54 @@ void rf_command_handle() {
 
 		byte ct = jsHub[command_type_].as<byte>();
 		
-		if(ct == HUB_GET_DATA){
+		if(ct == H2N_GET_DATA){
 			float _temp;
 			float _humi;
 
 			JsonObject& jsData = jsBuffer.createObject();
-			jsData[command_type_] = (byte)NODE_SEND_DATA;
+			jsData[command_type_] = (byte)N2H_DATA_FROM_SENSORS;
 			jsData[node_id_] = NODE_ID;
 			jsData[temperature_] = _temp;
 			jsData[humidity_] = _humi;
 
-			String dataJS;
-			jsData.printTo(dataJS);
-			radio_send(dataJS);
+			String js_send;
+			jsData.printTo(js_send);
+			radio_send(js_send);
 		}
 	}
 }
  
 /*test sensor*/
-void test_sensor() {
-	while (true) {
-		float h = sensor.readHumidity();
-		Db(F("Humi: "));
-		DB(h);
-		radio_send("Humi: " + String(h));
 
-		float t = sensor.readTemperatureC();
-		Db(F("Temp: "));
-		DB(t);
-		DB();
-		radio_send("Temp: " + String(t));
-		radio_send("\r\n");
-		delay(5000);
-	}
+void test_sensor() {
+	float h = sensor.readHumidity();
+	float t = sensor.readTemperatureC();
+	//while (true) {
+	//	float h = sensor.readHumidity();
+	//	Db(F("Humi: "));
+	//	DB(h);
+	//	radio_send("Humi: " + String(h));
+
+	//	float t = sensor.readTemperatureC();
+	//	Db(F("Temp: "));
+	//	DB(t);
+	//	DB();
+	//	radio_send("Temp: " + String(t));
+	//	radio_send("\r\n");
+	//	delay(5000);
+	//}
+	DynamicJsonBuffer jsBuffer(200);
+	JsonObject& jsData = jsBuffer.createObject();
+
+	jsData[CMD_T] = int(N2H_DATA_FROM_SENSORS);
+	jsData[NID] = NODE_ID;
+	jsData[TEMP] = String(t, 2);
+	jsData[HUMI] = String(h, 2);
+	jsData[RL_STT] = "";
+	jsData[GCS] = "";
+
+	String js_send;
+	jsData.printTo(js_send);
+	radio_send(js_send);
+	delay(5000);
 }

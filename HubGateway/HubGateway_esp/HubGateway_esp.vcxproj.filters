@@ -24,12 +24,18 @@
     <ClInclude Include="com_inside.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="mqtt_helper.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\hardware.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="com_inside.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\Mushroom\mqtt_helper.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

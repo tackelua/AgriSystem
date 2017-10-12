@@ -6,12 +6,13 @@
 
 SHT1x sensor(SHT_DATA, SHT_CLK);
 
-void hardware_init() {
+void hardware_init()
+{
 	pinMode(LED_STATUS, OUTPUT);
 	pinMode(LED_RELAY, OUTPUT);
 	pinMode(RELAY, OUTPUT);
 	pinMode(CONFIG_SEN, INPUT);
-	
+
 	digitalWrite(LED_STATUS, LED_OFF);
 	digitalWrite(LED_RELAY, LED_OFF);
 	digitalWrite(RELAY, RL_OFF);
