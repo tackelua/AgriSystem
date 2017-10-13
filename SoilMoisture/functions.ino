@@ -22,7 +22,7 @@ void check_config_Serial() {
 			JsonObject& jsRegister = jsBuffer.createObject();
 
 			jsRegister[node_type_] = SOIL_MOISTURE;
-			jsRegister[node_id_] = NODE_ID;
+			jsRegister[node_id_] = NodeID;
 
 			String jsExport;
 			jsRegister.printTo(jsExport);
@@ -49,55 +49,38 @@ void rf_command_handle() {
 		JsonObject& jsHub = jsBuffer.parseObject(radio_received);
 
 		byte ct = jsHub[command_type_].as<byte>();
-		
-		if(ct == H2N_GET_DATA){
-			float _temp;
-			float _humi;
 
-			JsonObject& jsData = jsBuffer.createObject();
-			jsData[command_type_] = (byte)N2H_DATA_FROM_SENSORS;
-			jsData[node_id_] = NODE_ID;
-			jsData[temperature_] = _temp;
-			jsData[humidity_] = _humi;
-
-			String js_send;
-			jsData.printTo(js_send);
-			radio_send(js_send);
+		if (ct == H2N_GET_DATA) {
+			thisNode.humi = sensor.readHumidity();
+			thisNode.temp = sensor.readTemperatureC();
+			node_send_data();
 		}
 	}
 }
- 
+
 /*test sensor*/
 
 void test_sensor() {
-	float h = sensor.readHumidity();
-	float t = sensor.readTemperatureC();
-	//while (true) {
-	//	float h = sensor.readHumidity();
-	//	Db(F("Humi: "));
-	//	DB(h);
-	//	radio_send("Humi: " + String(h));
+	thisNode.humi = sensor.readHumidity();
+	thisNode.temp = sensor.readTemperatureC();
+	node_send_data();
+	delay(5000);
+}
 
-	//	float t = sensor.readTemperatureC();
-	//	Db(F("Temp: "));
-	//	DB(t);
-	//	DB();
-	//	radio_send("Temp: " + String(t));
-	//	radio_send("\r\n");
-	//	delay(5000);
-	//}
+void node_send_data()
+{
 	DynamicJsonBuffer jsBuffer(200);
 	JsonObject& jsData = jsBuffer.createObject();
 
 	jsData[CMD_T] = int(N2H_DATA_FROM_SENSORS);
-	jsData[NID] = NODE_ID;
-	jsData[TEMP] = String(t, 2);
-	jsData[HUMI] = String(h, 2);
-	jsData[RL_STT] = "";
+	jsData[HID] = HubID;
+	jsData[NID] = NodeID;
+	jsData[TEMP] = String(thisNode.temp, 2);
+	jsData[HUMI] = String(thisNode.humi, 2);
+	jsData[RL_STT] = thisNode.relay == RL_ON ? "ON" : "OFF";
 	jsData[GCS] = "";
 
 	String js_send;
 	jsData.printTo(js_send);
 	radio_send(js_send);
-	delay(5000);
 }

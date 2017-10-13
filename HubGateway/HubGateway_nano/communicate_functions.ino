@@ -53,7 +53,7 @@ void H2S_updateHubStatus() {
 	DynamicJsonBuffer jsBuffer(300);
 	JsonObject& js2RF = jsBuffer.createObject();
 	js2RF[CMD_T] = H2S_UPDATE_HUB_STATUS;
-	js2RF[HID] = HUB_ID;
+	js2RF[HID] = HubID;
 	js2RF[R1] = RL_STT_1;
 	js2RF[R2] = RL_STT_2;
 	js2RF[R3] = RL_STT_3;
@@ -71,11 +71,11 @@ void H2S_updateNodeData(node_t node_id) {
 	DynamicJsonBuffer jsBuffer(300);
 	JsonObject& js2RF = jsBuffer.createObject();
 	js2RF[CMD_T] = H2S_UPDATE_NODE_DATA;
-	js2RF[HID] = HUB_ID;
+	js2RF[HID] = HubID;
 	js2RF[NID] = node_id.id;
 	js2RF[NODE_T] = (int)node_id.type;
 	js2RF[RL_STT] = node_id.relay;
-	js2RF[GCS] = gcs_calc(String(H2S_UPDATE_NODE_DATA) + HUB_ID + node_id.id + String(node_id.type) + node_id.relay + Githkey);
+	js2RF[GCS] = gcs_calc(String(H2S_UPDATE_NODE_DATA) + HubID + node_id.id + String(node_id.type) + node_id.relay + Githkey);
 
 	String js_send;
 	js2RF.printTo(js_send);

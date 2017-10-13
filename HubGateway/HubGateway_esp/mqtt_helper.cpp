@@ -17,6 +17,8 @@ const uint16_t mqtt_port = 1883;
 extern String timeStr;
 
 String mqtt_Message;
+extern String HubID;
+extern String mqtt_common_topic;
 
 WiFiClient mqtt_espClient;
 PubSubClient mqtt_client(mqtt_espClient);
@@ -81,11 +83,11 @@ void mqtt_reconnect() {  // Loop until we're reconnected
 	while (!mqtt_client.connected()) {
 		DEBUG.print(F("Attempting MQTT connection..."));
 		//boolean connect(const char* id, const char* willTopic, uint8_t willQos, boolean willRetain, const char* willMessage);
-		if (mqtt_client.connect(HubID.c_str(), mqtt_user, mqtt_password, ("AGRISYSTEM/" + HubID).c_str(), 0, true, String(HubID + " offline").c_str())) {
+		if (mqtt_client.connect(HubID.c_str(), mqtt_user, mqtt_password, mqtt_common_topic.c_str(), 0, true, String(HubID + " offline").c_str())) {
 			DEBUG.println(F("connected"));
-			mqtt_client.publish(("AGRISYSTEM/" + HubID).c_str(), (HubID + " online").c_str(), true);
+			mqtt_client.publish(mqtt_common_topic.c_str(), (HubID + " online").c_str(), true);
 			mqtt_client.subscribe("DateTime");
-			mqtt_client.subscribe(("AGRISYSTEM/" + HubID).c_str());
+			mqtt_client.subscribe(mqtt_common_topic.c_str());
 		}
 		else {
 			DEBUG.print(F("failed, rc="));

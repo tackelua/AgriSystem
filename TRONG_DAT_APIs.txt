@@ -3,7 +3,7 @@
 Để giảm tải cho Server, tất cả các thông tin trao đổi giữa Server và HUB đều thông qua 1 topic duy nhất cho mỗi một Hub riêng biệt theo ID của HUB.
 Các kiểu lệnh được phân biệt trong nội dung json
 
-Topic: "/AGRISYSTEM/<HUB_ID>"
+Topic: "/AGRISYSTEM/<HubID>"
 
 enum COMMAND_TYPE {
 	S2H_CONTROL_RELAY = 0,
@@ -34,7 +34,7 @@ enum NODE_TYPE {
 	Hub Response:
 	{
 		"CMD_T":H2S_UPDATE_HUB_STATUS,
-		"HID":"<HUB_ID>",
+		"HID":"<HubID>",
 		"R1":"ON",
 		"R2":"OFF",
 		"R3":"ON",
@@ -49,7 +49,7 @@ enum NODE_TYPE {
 	Hub Response:
 	{
 		"CMD_T":H2S_UPDATE_HUB_STATUS,
-		"HID":"<HUB_ID>",
+		"HID":"<HubID>",
 		"R1":"ON",
 		"R2":"OFF",
 		"R3":"ON",
@@ -65,7 +65,7 @@ enum NODE_TYPE {
 	Hub Response:
 	{
 		"CMD_T":H2S_UPDATE_NODE_DATA,
-		"HID":"<HUB_ID>",
+		"HID":"<HubID>",
 		"NID":"<Node Sensor ID>",
 		"NODE_T":node_type, //Phần data của node phụ thuộc vào "node_type"
 		"TEMP":temp,

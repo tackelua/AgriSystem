@@ -12,6 +12,9 @@ void CORE_SERIAL_handle() {
 		core_serial_received = CORE_SERIAL.readString();
 		digitalWrite(LED_STATUS, HIGH);
 		DB(core_serial_received);
+
+		mqtt_publish(mqtt_common_topic, core_serial_received);
+
 		DynamicJsonBuffer jsBuffer(200);
 		JsonObject& jsCoreBuff = jsBuffer.parseObject(core_serial_received);
 

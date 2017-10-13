@@ -6,8 +6,8 @@
 #include <nRF24L01.h>
 #include <RF24.h>
 
-String HUB_ID;
-const char NODE_ID[] = "0543";
+String HubID;
+const char* NodeID = "0543";
 
 uint64_t RF_PIPE = 0xE8E8F0F0E1LL;
 uint8_t RF_CHANNEL = 14;

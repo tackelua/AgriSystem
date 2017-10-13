@@ -32,6 +32,8 @@ String getID() {
 	return id;
 }
 String HubID = getID();
+String mqtt_common_topic = ("AGRISYSTEM/" + HubID);
+
 void setup()
 {
 	delay(10);
@@ -51,7 +53,7 @@ void setup()
 
 	display.setTextColor(BLACK);
 	display.setTextSize(1);
-	display.print("Hi Nidhi");
+	display.print("GithSys");
 	display.display();
 
 	//display.setTextColor(WHITE, BLACK);

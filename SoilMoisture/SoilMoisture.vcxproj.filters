@@ -41,7 +41,7 @@
     </Image>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\APIs.txt">
+    <Text Include="..\TRONG_DAT_APIs.txt">
       <Filter>Resource Files</Filter>
     </Text>
   </ItemGroup>
