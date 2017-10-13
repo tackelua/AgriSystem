@@ -62,6 +62,7 @@
 	#define LCD_DC	D6
 	#define LCD_CE	D7
 	#define LCD_RST	D4
+
 #endif // ARDUINO_ARCH_ESP8266
 
 

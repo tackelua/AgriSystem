@@ -17,6 +17,21 @@ Adafruit_PCD8544 display(LCD_CLK, LCD_DIN, LCD_DC, LCD_CE, LCD_RST);
 
 String core_serial_received;
 
+String _firmwareVersion = __DATE__ " " __TIME__;
+String timeStr;
+
+String getID() {
+	byte mac[6];
+	WiFi.macAddress(mac);
+	String id;
+	for (int i = 0; i < 6; i++)
+	{
+		id += String(mac[i], HEX);
+	}
+	id.toUpperCase();
+	return id;
+}
+String HubID = getID();
 void setup()
 {
 	delay(10);

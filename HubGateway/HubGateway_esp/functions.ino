@@ -52,3 +52,26 @@ void lcd_show_sensor_data(float temp, float humi)
 	display.print(humi);
 	display.display();
 }
+
+
+void updateFirmware(String url) {
+	ESPhttpUpdate.rebootOnUpdate(true);
+
+	t_httpUpdate_return ret = ESPhttpUpdate.update(url);
+
+	switch (ret) {
+	case HTTP_UPDATE_FAILED:
+		DEBUG.printf("HTTP_UPDATE_FAILD Error (%d): %s", ESPhttpUpdate.getLastError(), ESPhttpUpdate.getLastErrorString().c_str());
+		break;
+
+	case HTTP_UPDATE_NO_UPDATES:
+		DEBUG.println(F("HTTP_UPDATE_NO_UPDATES"));
+		break;
+
+	case HTTP_UPDATE_OK:
+		DEBUG.println(F("HTTP_UPDATE_OK"));
+		delay(2000);
+		ESP.restart();
+		break;
+	}
+}

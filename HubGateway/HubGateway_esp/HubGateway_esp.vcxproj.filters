@@ -35,7 +35,7 @@
     <ClCompile Include="com_inside.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\Mushroom\mqtt_helper.cpp">
+    <ClCompile Include="mqtt_helper.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
