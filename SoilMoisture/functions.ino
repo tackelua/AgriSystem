@@ -1,11 +1,4 @@
-﻿#define node_type_		"nt"
-#define node_id_		"nid"
-#define command_type_	"ct"
-#define rf_addr_		"rfad"
-#define rf_channel_		"rfc"
-#define temperature_	"temp"
-#define humidity_		"humi"
-
+﻿
 /*Config Serial kiểm tra jack cắm có được kết nối với hub hay ko*/
 void check_config_Serial() {
 	bool _connected = !digitalRead(CONFIG_SEN);
@@ -21,8 +14,8 @@ void check_config_Serial() {
 			DynamicJsonBuffer jsBuffer(200);
 			JsonObject& jsRegister = jsBuffer.createObject();
 
-			jsRegister[node_type_] = SOIL_MOISTURE;
-			jsRegister[node_id_] = NodeID;
+			jsRegister[NODE_T] = SOIL_MOISTURE;
+			jsRegister[NID] = NodeID;
 
 			String jsExport;
 			jsRegister.printTo(jsExport);
@@ -33,8 +26,8 @@ void check_config_Serial() {
 			dataHub.trim();
 			DynamicJsonBuffer jsBuffer(200);
 			JsonObject& jsHub = jsBuffer.parseObject(dataHub);
-			RF_PIPE = jsHub[rf_addr_].as<String>().toInt();
-			RF_CHANNEL = jsHub[rf_channel_].as<String>().toInt();
+			RF_PIPE = jsHub[RF_ADDR].as<String>().toInt();
+			RF_CHANNEL = jsHub[RF_CHN].as<String>().toInt();
 		}
 	}
 	else if (flag_cfS_declared) {
@@ -48,7 +41,7 @@ void rf_command_handle() {
 		DynamicJsonBuffer jsBuffer(200);
 		JsonObject& jsHub = jsBuffer.parseObject(radio_received);
 
-		byte ct = jsHub[command_type_].as<byte>();
+		byte ct = jsHub[CMD_T].as<byte>();
 
 		if (ct == H2N_GET_DATA) {
 			thisNode.humi = sensor.readHumidity();
