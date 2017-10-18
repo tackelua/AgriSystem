@@ -23,7 +23,11 @@ void CORE_SERIAL_handle() {
 		{
 			float t = jsCoreBuff[TEMP].as<String>().toFloat();
 			float h = jsCoreBuff[HUMI].as<String>().toFloat();
-			lcd_show_sensor_data(t, h);
+			if (t > 0.0 && h > 0.0)
+			{
+				lcd_show_sensor_data(t, h);
+				ThingSpeak_uploadData(t, h);
+			}
 		}
 		else if (cmd_t == CC_SEND_BUTTON_PRESS)
 		{
@@ -78,3 +82,88 @@ void updateFirmware(String url) {
 		break;
 	}
 }
+
+#pragma region Thing Speak
+
+// ThingSpeak Settings
+const int ThingSpeak_channelID = 348754; //
+String ThingSpeak_writeAPIKey = "7ZHWI44QXUNGG75S"; // write API key for your ThingSpeak Channel
+const char* ThingSpeak_server = "api.thingspeak.com";
+
+WiFiClient WFclient;
+
+void ThingSpeak_uploadData(float temp, float humi)
+{
+	DB(F("ThingSpeak"));
+	if (WFclient.connect(ThingSpeak_server, 80)) {
+		// Construct API request body
+		String body = "field1=" + String(temp, 1) + "&field2=" + String(humi, 1);
+
+		WFclient.print("POST /update HTTP/1.1\n");
+		WFclient.print("Host: api.thingspeak.com\n");
+		WFclient.print("Connection: close\n");
+		WFclient.print("X-THINGSPEAKAPIKEY: " + ThingSpeak_writeAPIKey + "\n");
+		WFclient.print("Content-Type: application/x-www-form-urlencoded\n");
+		WFclient.print("Content-Length: ");
+		WFclient.print(body.length());
+		WFclient.print("\n\n");
+		WFclient.print(body);
+		WFclient.print("\n\n");
+		Db("TEMP: " + String(temp, 1) + "\r\nHUMI: " + String(humi, 1));
+	}
+	WFclient.stop();
+}
+#pragma endregion
+
+#pragma region WiFi Init
+void wifi_init() {
+	//WiFi.begin("IoT Wifi", "mic@dtu12345678()");
+
+	WiFi.setAutoConnect(true);
+	WiFi.setAutoReconnect(true);
+	WiFi.mode(WIFI_STA);
+
+	//Serial.println(F("SmartConfig started."));
+	//WiFi.beginSmartConfig();
+	//while (1) {
+	//	delay(1000);
+	//	if (WiFi.smartConfigDone()) {
+	//		Serial.println(F("SmartConfig: Success"));
+	//		WiFi.printDiag(Serial);
+	//		//WiFi.stopSmartConfig();
+	//		break;
+	//	}
+	//}
+
+	WiFi.printDiag(Serial);
+	Serial.println(F("\nConnecting..."));
+
+	if (WiFi.waitForConnectResult() == WL_CONNECTED)
+	{
+		Serial.println(F("connected\n"));
+	}
+	else
+	{
+		Serial.println(F("connect again\n"));
+		if (WiFi.waitForConnectResult() == WL_CONNECTED)
+		{
+			Serial.println(F("connected\n"));
+			return;
+		}
+
+		Serial.println(F("SmartConfig started."));
+		WiFi.beginSmartConfig();
+		while (1) {
+			delay(500);
+			if (WiFi.smartConfigDone()) {
+				Serial.println(F("SmartConfig: Success"));
+				WiFi.printDiag(Serial);
+				//WiFi.stopSmartConfig();
+				break;
+			}
+		}
+	}
+}
+#pragma endregion
+
+

@@ -13,7 +13,7 @@
 
 SoftwareSerial CORE_SERIAL(CORE_SERIAL_RX, CORE_SERIAL_TX);
 Adafruit_PCD8544 display(LCD_CLK, LCD_DIN, LCD_DC, LCD_CE, LCD_RST);
-#define display_contrast_level	50
+#define display_contrast_level	25
 
 String core_serial_received;
 
@@ -55,6 +55,8 @@ void setup()
 	display.setTextSize(1);
 	display.print("GithSys");
 	display.display();
+
+	wifi_init();
 
 	//display.setTextColor(WHITE, BLACK);
 	display.setCursor(0, 17);
