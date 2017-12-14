@@ -31,7 +31,7 @@ enum NODE_TYPE {
 		FAN ------- Quạt thông gió
 			ON
 			OFF
-		MIST ------ Bơm phun sương
+		SPRAY ------ Bơm phun sương
 			ON
 			OFF
 		COVER ----- Mái che
@@ -64,7 +64,7 @@ enum NODE_TYPE {
 		"CMD_T"		 : S2H_CONTROL_RELAY,
 		"LIGHT"		 : "ON",
 		"FAN"		 : "ON",
-		"MIST"		 : "ON",
+		"SPRAY"		 : "ON",
 		"COVER"		 : "OFF" //sẽ có 3 giá trị cho cái mái che này: ON, OFF, STOP. ON = OPEN, OFF = CLOSE
 	}
 
@@ -77,7 +77,7 @@ enum NODE_TYPE {
 		"CMD_T"		 : H2S_UPDATE_HUB_STATUS,
 		"LIGHT"		 : "ON",
 		"FAN"		 : "ON",
-		"MIST"		 : "ON",
+		"SPRAY"		 : "ON",
 		"COVER"		 : "OFF"	// ON, OFF or MID. MID là ở giữa, ko đụng đến công tắc hành trình ở biên
 	}
 	
@@ -99,7 +99,7 @@ enum NODE_TYPE {
 		"CMD_T"		 : H2S_UPDATE_HUB_STATUS,
 		"LIGHT"		 : "ON",
 		"FAN"		 : "ON",
-		"MIST"		 : "ON",
+		"SPRAY"		 : "ON",
 		"COVER"		 : "OFF"
 	}
 
