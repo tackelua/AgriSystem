@@ -1,4 +1,8 @@
 ﻿
+--------------------------------------------------------------------------------------------------------
+Thêm 3 trường MES_ID, SOURCE, DEST vào mỗi gói tín, sau này dễ dàng trong việc mở rộng theo nhiều hướng.
+--------------------------------------------------------------------------------------------------------
+  
 #region HUB & SERVER MQTT
 Để giảm tải cho Server, tất cả các thông tin trao đổi giữa Server và HUB đều thông qua 1 topic duy nhất cho mỗi một Hub riêng biệt theo ID của HUB.
 Các kiểu lệnh được phân biệt trong nội dung json
@@ -14,109 +18,176 @@ enum COMMAND_TYPE {
 	H2S_UPDATE_NODE_DATA
 }
 enum NODE_TYPE {
-	NODE_S1_TEMP_HUMI_RELAY,
-	NODE_S2_LIGHT_RELAY
+	HUB_GATEWAY = 0,
+	SOIL_MOISTURE,
+	ENVIROMENT_STATION
 };
 
-- Server gửi lệnh điều khiển cho Hub
 /*
-	R1, R2, R3, R4 tên Relays
-	Không cần gửi hết 4 cái một lần, muốn điều khiển cái nào thì thêm cái đó vào.
+	HUB
+		LIGHT ----- Đèn
+			ON	
+			OFF
+		FAN ------- Quạt thông gió
+			ON
+			OFF
+		MIST ------ Bơm phun sương
+			ON
+			OFF
+		COVER ----- Mái che
+			ON
+			OFF
+			STOP --	Request
+			MID --- Response
+		
+	SOIL_MOISTURE aka TRAY
+		MANURE ---- Bơm bón phân
+			ON
+			OFF
+		SPRAY ----- Bơm tưới nước
+			ON
+			OFF
+		LIGHT ----- Đèn chiếu sáng
+			ON
+			OFF
+		LED_MOSFET  Đèn quang hợp, có thể điều chỉnh độ sáng
+			ON<PERCENT>: ON45, ON78
+			OFF
 */
+
+- Server gửi lệnh điều khiển cho Hub
 	{
-		"CMD_T":S2H_CONTROL_RELAY,
-		"R1":"ON",
-		"R2":"OFF",
-		"R3":"ON",
-		"R4":"OFF"
+		"MES_ID"	 : "",
+		"HUB_ID"	 : "",
+		"SOURCE"	 : "",
+		"DEST"		 : "",
+		"CMD_T"		 : S2H_CONTROL_RELAY,
+		"LIGHT"		 : "ON",
+		"FAN"		 : "ON",
+		"MIST"		 : "ON",
+		"COVER"		 : "OFF" //sẽ có 3 giá trị cho cái mái che này: ON, OFF, STOP. ON = OPEN, OFF = CLOSE
 	}
 
 	Hub Response:
 	{
-		"CMD_T":H2S_UPDATE_HUB_STATUS,
-		"HID":"<HubID>",
-		"R1":"ON",
-		"R2":"OFF",
-		"R3":"ON",
-		"R4":"OFF"
+		"MES_ID"	 : "",
+		"HUB_ID"	 : "",
+		"SOURCE"	 : "",
+		"DEST"		 : "",
+		"CMD_T"		 : H2S_UPDATE_HUB_STATUS,
+		"LIGHT"		 : "ON",
+		"FAN"		 : "ON",
+		"MIST"		 : "ON",
+		"COVER"		 : "OFF"	// ON, OFF or MID. MID là ở giữa, ko đụng đến công tắc hành trình ở biên
 	}
 	
 - Lấy trạng thái của HUB
 	{
-		"CMD_T":S2H_GET_HUB_STATUS,
+		"MES_ID"	 : "",
+		"HUB_ID"	 : "",
+		"SOURCE"	 : "",
+		"DEST"		 : "",
+		"CMD_T"		 : S2H_GET_HUB_STATUS,
 	}
 
 	Hub Response:
 	{
-		"CMD_T":H2S_UPDATE_HUB_STATUS,
-		"HID":"<HubID>",
-		"R1":"ON",
-		"R2":"OFF",
-		"R3":"ON",
-		"R4":"OFF"
+		"MES_ID"	 : "",
+		"HUB_ID"	 : "",
+		"SOURCE"	 : "",
+		"DEST"		 : "",
+		"CMD_T"		 : H2S_UPDATE_HUB_STATUS,
+		"LIGHT"		 : "ON",
+		"FAN"		 : "ON",
+		"MIST"		 : "ON",
+		"COVER"		 : "OFF"
 	}
-	
+
+- Server gửi lệnh điều khiển cho Node
+	{
+		"MES_ID"	 : "",
+		"HUB_ID"	 : "",
+		"SOURCE"	 : "",
+		"DEST"		 : "",
+		"CMD_T"		 : S2H_CONTROL_RELAY,
+		"MANURE"	 : "ON",
+		"SPRAY"		 : "ON",
+		"LIGHT"		 : "OFF",
+		"LED_MOSFET" : "ON45"
+	}
+
+	Hub Response:
+	{
+		"MES_ID"	 : "",
+		"HUB_ID"	 : "",
+		"SOURCE"	 : "",
+		"DEST"		 : "",
+		"CMD_T"		 : H2S_UPDATE_NODE_STATUS,
+		"MANURE"	 : "ON",
+		"SPRAY"		 : "ON",
+		"LIGHT"		 : "OFF",
+		"LED_MOSFET" : "ON45"
+	}
+
 - Lấy thông tin Sensor
 	{
-		"CMD_T":S2H_GET_SENSOR_DATA,
-		"NID":"<Node Sensor ID>"
+		"MES_ID"	 : "",
+		"HUB_ID"	 : "",
+		"SOURCE"	 : "",
+		"DEST"		 : "",
+		"CMD_T"		 : S2H_GET_SENSOR_DATA
 	}
 	
 	Hub Response:
 	{
-		"CMD_T":H2S_UPDATE_NODE_DATA,
-		"HID":"<HubID>",
-		"NID":"<Node Sensor ID>",
-		"NODE_T":node_type, //Phần data của node phụ thuộc vào "node_type"
-		"TEMP":temp,
-		"HUMI":humi,
-		"RL_STT": "ON"		//Relay Status: ON/OFF
+		"MES_ID"	 : "",
+		"SOURCE"	 : "",
+		"DEST"		 : "",
+		"CMD_T"		 : H2S_UPDATE_NODE_DATA,
+		"NODE_T"	 : node_type, //Phần data của node phụ thuộc vào "node_type"
+			           
+		"TEMP"		 : temp,
+		"HUMI"		 : humi,
+			           
+		"MANURE"	 : "ON",
+		"SPRAY"		 : "ON",
+		"LIGHT"		 : "OFF",
+		"LED_MOSFET" : "ON45"
 	}
 
 #end region
 
 #region HUB & CLIENT NODE
-- Khi cắm Hub kết nối với các Client Node (module gắn ngoài: sensors, trạm quan trắc)
+Truyền qua RF hoặc RS485 đôi khi dữ liệu không được toàn vẹn, do đó trong chuỗi gửi đi kèm theo trường GCS để kiểm tra sự toàn vẹn của dữ liệu nhận được.
 
 enum COMMAND_TYPE {
 	N2H_REGISTER_NEW_NODE,
 	H2N_INFO_RESPONSE,
 	N2H_DATA_FROM_SENSORS,
-	H2N_GET_DATA,
-	
+	H2N_GET_DATA
 }
-
-- Node gửi thông tin đăng kí đến Hub gồm kiểu module, Module ID
-	{
-		"CMD_T" : N2H_REGISTER_NEW_NODE,
-		"NODE_T" : Node_t,	//node type
-		"NID": "",			//node id
-		"GCS": ""			//Gith checksum
-	}
-	
-	Hub Response:
-	{
-		"CMD_T" : H2N_INFO_RESPONSE,
-		"RF_ADDR": "",		//rf address
-		"RF_CHN": "",		//rf channel
-		"GCS": ""			//Gith checksum
-	}
 
 - Hub gửi request đến CM để get data
 	{
-		"CMD_T" :H2N_GET_DATA,
-		"NID":"",
-		"GCS":""			//Gith checksum
+		"MES_ID" : "",
+		"HUB_ID"	 : "",
+		"SOURCE" : "",
+		"DEST"	 : "",
+		"CMD_T"  : H2N_GET_DATA,
+		"GCS"	 : (unsigned long)				//Gith checksum
 	}
 
 - Gửi Data sensor từ Client Module 
 	{
-		"CMD_T" :N2H_DATA_FROM_SENSORS,
-		"NID":"",			//node id
-		"TEMP"  :"",		//temp
-		"HUMI"  :"",		//humidity
-		"RL_STT":"ON",		//relay status
-		"GCS":""			//Gith checksum
+		"MES_ID" : "",
+		"HUB_ID"	 : "",
+		"SOURCE" : "",
+		"DEST"	 : "",
+		"CMD_T"  : N2H_DATA_FROM_SENSORS,
+		"TEMP"   : "",						//temp
+		"HUMI"   : "",						//humidity
+		"RL_STT" : "ON",					//relay status
+		"GCS"	 :  (unsigned long)			//Gith checksum
 	}
 
 #end region
