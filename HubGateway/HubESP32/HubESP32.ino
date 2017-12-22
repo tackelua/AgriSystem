@@ -1,11 +1,12 @@
+#include <esp_system.h>
 #include <WiFiClient.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
 
-HardwareSerial Serial2(1);
+HardwareSerial Serial2(2);
 
-#define _firmwareVersion = __DATE__ " " __TIME__;
+#define _firmwareVersion = "0.1.1" " " __DATE__ " " __TIME__;
 
 #define DEBUG		Serial
 #define Dprint		DEBUG.print
@@ -20,12 +21,12 @@ HardwareSerial Serial2(1);
 #define Rflush		RF.flush
 
 #define LED_STATUS		LED_BUILTIN
-#define HPIN_LIGHT		32
-#define HPIN_FAN		33
-#define HPIN_SPRAY		34
+#define HPIN_LIGHT		34
+#define HPIN_FAN		35
+#define HPIN_SPRAY		32
 #define HPIN_COVER		-1 //virtual
-#define HPIN_COVER_ON	35
-#define HPIN_COVER_OFF	31
+#define HPIN_COVER_ON	33
+#define HPIN_COVER_OFF	25
 
 #define CMD_T		"CMD_T"
 #define MES_ID		"MES_ID"
@@ -71,19 +72,19 @@ enum NODE_TYPE {
 
 };
 
+
 String getID() {
-	byte mac[6];
-	WiFi.macAddress(mac);
-	String id;
-	for (int i = 0; i < 16; i++)
-	{
-		id += String(mac[i], HEX);
-	}
-	id.toUpperCase();
+	uint8_t baseMac[6];
+	// Get MAC address for WiFi station
+	esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
+	char baseMacChr[6] = { 0 };
+	sprintf(baseMacChr, "%02X%02X%02X", baseMac[3], baseMac[4], baseMac[5]);
+	String id = String(baseMacChr);
+	id.trim();
 	return id;
 }
-String HubID = getID();
-String MQTT_TOPIC_MAIN = ("AGRISYSTEM/" + HubID);
+String HubID;
+String MQTT_TOPIC_MAIN;
 
 
 void control_relay_hub(int HPIN, String STT, bool publish = false);
@@ -91,7 +92,7 @@ void control_relay_hub(int HPIN, String STT, bool publish = false);
 
 #pragma region WiFi Init
 void wifi_init() {
-	//WiFi.begin("IoT Wifi", "mic@dtu12345678()");
+	WiFi.begin("IoT Wifi", "mic@dtu12345678()"); return;
 
 	WiFi.setAutoConnect(true);
 	WiFi.setAutoReconnect(true);
@@ -158,24 +159,39 @@ void parseJsonFromServer(String& json) {
 	StaticJsonBuffer<500> jsonBuffer;
 	JsonObject& commands = jsonBuffer.parseObject(mqtt_Message);
 
+	if (!commands.success()) {
+		Dprintln(F("#ERR mqtt_Message invalid"));
+		Dprintln(mqtt_Message);
+		Dprintln();
+		return;
+	}
+
 	String jsMES_ID = commands["MES_ID"].as<String>();
 	String jsHUB_ID = commands["HUB_ID"].as<String>();
 	String jsSOURCE = commands["SOURCE"].as<String>();
 	String jsDEST = commands["DEST"].as<String>();
 	int jsCMD_T = commands["CMD_T"].as<int>();
 	if (jsHUB_ID == HubID) {
-		if (jsCMD_T == S2H_CONTROL_RELAY) {
-			String jsLIGHT = commands["LIGHT"].as<String>();
-			String jsFAN = commands["FAN"].as<String>();
-			String jsSPRAY = commands["SPRAY"].as<String>();
-			String jsCOVER = commands["COVER"].as<String>();
+		if (jsDEST == HubID) {
+			if (jsCMD_T == S2H_CONTROL_RELAY) {
+				String jsLIGHT = commands["LIGHT"].as<String>();
+				String jsFAN = commands["FAN"].as<String>();
+				String jsSPRAY = commands["SPRAY"].as<String>();
+				String jsCOVER = commands["COVER"].as<String>();
 
-			control_relay_hub(HPIN_LIGHT, jsLIGHT);
-			control_relay_hub(HPIN_FAN, jsFAN);
-			control_relay_hub(HPIN_SPRAY, jsSPRAY);
-			control_relay_hub(HPIN_COVER, jsCOVER);
+				control_relay_hub(HPIN_LIGHT, jsLIGHT);
+				control_relay_hub(HPIN_FAN, jsFAN);
+				control_relay_hub(HPIN_SPRAY, jsSPRAY);
+				control_relay_hub(HPIN_COVER, jsCOVER);
 
-			upload_relay_status();
+				upload_relay_hub_status();
+			}
+		}
+		else {
+			Dprintln(F("Send to RF: "));
+			Dprintln(mqtt_Message);
+			RF.print(mqtt_Message);
+			RF.flush();
 		}
 	}
 }
@@ -234,9 +250,13 @@ void mqtt_reconnect() {  // Loop until we're reconnected
 	while (!mqtt_client.connected()) {
 		Dprint(F("Attempting MQTT connection..."));
 		//boolean connect(const char* id, const char* willTopic, uint8_t willQos, boolean willRetain, const char* willMessage);
-		if (mqtt_client.connect(HubID.c_str(), mqtt_user, mqtt_password, MQTT_TOPIC_MAIN.c_str(), 0, true, String(HubID + " offline").c_str())) {
+		String h_offline = HubID + " offline";
+		if (mqtt_client.connect(HubID.c_str(), mqtt_user, mqtt_password, MQTT_TOPIC_MAIN.c_str(), 0, true, h_offline.c_str())) {
 			Dprintln(F("connected"));
-			mqtt_client.publish(MQTT_TOPIC_MAIN.c_str(), (HubID + " online").c_str(), true);
+			String h_online = HubID + " online";
+			mqtt_client.publish(MQTT_TOPIC_MAIN.c_str(), h_online.c_str(), true);
+			mqtt_client.subscribe(MQTT_TOPIC_MAIN.c_str());
+			String libs = MQTT_TOPIC_MAIN + "/LIBS/#";
 			mqtt_client.subscribe(MQTT_TOPIC_MAIN.c_str());
 		}
 		else {
@@ -257,6 +277,7 @@ void mqtt_init() {
 
 void mqtt_loop() {
 	if (!mqtt_client.connected()) {
+		delay(1000);
 		mqtt_reconnect();
 	}
 	mqtt_client.loop();
@@ -287,13 +308,29 @@ int STT_SPRAY = STT_OFF;
 int STT_COVER = STT_OFF;
 
 void hardware_init() {
+	delay(10);
+	DEBUG.begin(115200);
+	DEBUG.setTimeout(5);
+	Dprintln(F("\r\n### E S P ###"));
+
+	RF.begin(9600);
+	RF.setTimeout(10);
+
 	pinMode(HPIN_LIGHT, OUTPUT);
 	pinMode(HPIN_FAN, OUTPUT);
 	pinMode(HPIN_SPRAY, OUTPUT);
 	pinMode(HPIN_COVER, OUTPUT);
+
+	Dprintln();
+	HubID = getID();
+	MQTT_TOPIC_MAIN = "AGRISYSTEM/" + HubID;
+	Dprintf("\r\n\r\nHID=%s\r\n\r\n", HubID.c_str());
+	Dprintln(HubID);
 }
 
 void control_relay_hub(int HPIN, String STT, bool publish) {
+	Dprintf("Turn pin %d %s\r\n", HPIN, STT == ON ? "on" : "off");
+
 	if (HPIN == HPIN_LIGHT) {
 		if (STT == ON) {
 			STT_LIGHT = STT_ON;
@@ -301,7 +338,7 @@ void control_relay_hub(int HPIN, String STT, bool publish) {
 		}
 		else if (STT == OFF) {
 			STT_LIGHT = STT_OFF;
-			digitalWrite(HPIN, true);
+			digitalWrite(HPIN, false);
 		}
 	}
 	else if (HPIN == HPIN_FAN) {
@@ -311,7 +348,7 @@ void control_relay_hub(int HPIN, String STT, bool publish) {
 		}
 		else if (STT == OFF) {
 			STT_FAN = STT_OFF;
-			digitalWrite(HPIN, true);
+			digitalWrite(HPIN, false);
 		}
 	}
 	else if (HPIN == HPIN_SPRAY) {
@@ -321,7 +358,7 @@ void control_relay_hub(int HPIN, String STT, bool publish) {
 		}
 		else if (STT == OFF) {
 			STT_SPRAY = STT_OFF;
-			digitalWrite(HPIN, true);
+			digitalWrite(HPIN, false);
 		}
 	}
 	else if (HPIN == HPIN_COVER) {
@@ -332,8 +369,8 @@ void control_relay_hub(int HPIN, String STT, bool publish) {
 		}
 		else if (STT == OFF) {
 			STT_COVER = STT_OFF;
-			digitalWrite(HPIN_COVER_OFF, true);
 			digitalWrite(HPIN_COVER_ON, false);
+			digitalWrite(HPIN_COVER_OFF, true);
 		}
 		else if (STT == MID) {
 			STT_COVER = STT_OFF;
@@ -343,45 +380,60 @@ void control_relay_hub(int HPIN, String STT, bool publish) {
 	}
 }
 
-void upload_relay_status() {
-	StaticJsonBuffer<500> jsBufferRelayHub;
+void upload_relay_hub_status() {
+	DynamicJsonBuffer jsBufferRelayHub(500);
 	JsonObject& jsDataRelayHub = jsBufferRelayHub.createObject();
-	jsDataRelayHub["MES_ID"] = MES_ID;
-	jsDataRelayHub["HUB_ID"] = HubID;
-	jsDataRelayHub["SOURCE"] = HubID;
-	jsDataRelayHub["DEST"] = SERVER;
-	jsDataRelayHub["CMD_T"] = H2S_UPDATE_HUB_STATUS;
-	jsDataRelayHub["LIGHT"] = STT_LIGHT == STT_ON ? ON : OFF;
-	jsDataRelayHub["FAN"] = STT_FAN == STT_ON ? ON : ON;
-	jsDataRelayHub["SPRAY"] = STT_SPRAY == STT_ON ? ON : ON;
-	jsDataRelayHub["COVER"] = STT_COVER == STT_ON ? ON : (STT_COVER == STT_OFF ? OFF : MID);
+
+	jsDataRelayHub[MES_ID] = String(micros());
+	jsDataRelayHub[HUB_ID] = HubID;
+	jsDataRelayHub[SOURCE] = HubID;
+	jsDataRelayHub[DEST] = SERVER;
+	jsDataRelayHub[CMD_T] = int(H2S_UPDATE_HUB_STATUS);
+	jsDataRelayHub[LIGHT] = STT_LIGHT == STT_ON ? ON : OFF;
+	jsDataRelayHub[FAN] = STT_FAN == STT_ON ? ON : ON;
+	jsDataRelayHub[SPRAY] = STT_SPRAY == STT_ON ? ON : ON;
+	jsDataRelayHub[COVER] = STT_COVER == STT_ON ? ON : (STT_COVER == STT_OFF ? OFF : MID);
 
 	String dataRelayHub;
 	jsDataRelayHub.printTo(dataRelayHub);
 	mqtt_publish(MQTT_TOPIC_MAIN, dataRelayHub, true);
 }
 
+void handle_node_communicate() {
+	String rf_Message;
+	if (RF.available()) {
+		rf_Message = RF.readString();
+		DynamicJsonBuffer jsonBufferNodeData(500);
+		JsonObject& nodeData = jsonBufferNodeData.parseObject(rf_Message);
+		
+		if (!nodeData.success()) {
+			Dprintln(F("#ERR rf_Message invalid"));
+			Dprintln(mqtt_Message);
+			Dprintln();
+		}
 
+		String _hubID = nodeData[HUB_ID].as<String>();
+		String _DEST = nodeData[DEST].as<String>();
+		if ((_hubID == HubID) && (_DEST != HubID)) {
+			mqtt_publish(MQTT_TOPIC_MAIN, rf_Message, false);
+		}
+	}
+}
 #pragma endregion
 
 
 void setup()
 {
-	delay(10);
-	DEBUG.begin(115200);
-	DEBUG.setTimeout(5);
-	Dprintln(F("\r\n### E S P ###"));
-
-	RF.begin(9600);
-	RF.setTimeout(5);
-
 	hardware_init();
 
 	wifi_init();
+	mqtt_init();
 }
 
 void loop()
 {
+	mqtt_loop();
+	handle_node_communicate();
 	delay(0);
 
 }
