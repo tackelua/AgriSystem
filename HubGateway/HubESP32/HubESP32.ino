@@ -50,26 +50,27 @@ HardwareSerial Serial2(2);
 #define TEMP		"TEMP"
 #define HUMI		"HUMI"
 
-enum COMMAND_TYPE
-{
-	S2H_CONTROL_RELAY = 0,
-	S2H_GET_HUB_STATUS,
-	S2H_GET_SENSOR_DATA,
+enum COMMAND_TYPE {
+	CONTROL_GARDEN_HUB = 0,
+	CONTROL_GARDEN_NODE,
+	CONTROL_ENVIROMENT_MONITOR,
+	CONTROL_TANK_CONTROLER,
 
-	H2S_UPDATE_HUB_STATUS = 10,
-	H2S_UPDATE_NODE_DATA,
+	GET_DATA_GARDEN_HUB = 10,
+	GET_DATA_GARDEN_NODE,
+	GET_DATA_ENVIROMENT_MONITOR,
+	GET_DATA_TANK_CONTROLER,
 
-	N2H_REGISTER_NEW_NODE,
-	N2H_DATA_FROM_SENSORS,
-	H2N_INFO_RESPONSE,			//
-	H2N_GET_DATA				//
+	UPDATE_DATA_GARDEN_HUB = 20,
+	UPDATE_DATA_GARDEN_NODE,
+	UPDATE_DATA_ENVIROMENT_MONITOR,
+	UPDATE_DATA_TANK_CONTROLER,
 };
-
 enum NODE_TYPE {
-	HUB_GATEWAY = 0,
-	SOIL_MOISTURE,
-	ENVIROMENT_STATION
-
+	GARDEN_HUB = 0,
+	GARDEN_NODE,
+	ENVIROMENT_MONITOR,
+	TANK_CONTROLER
 };
 
 
@@ -161,7 +162,6 @@ void parseJsonFromServer(String& json) {
 
 	if (!commands.success()) {
 		Dprintln(F("#ERR mqtt_Message invalid"));
-		Dprintln(mqtt_Message);
 		Dprintln();
 		return;
 	}
@@ -173,7 +173,7 @@ void parseJsonFromServer(String& json) {
 	int jsCMD_T = commands["CMD_T"].as<int>();
 	if (jsHUB_ID == HubID) {
 		if (jsDEST == HubID) {
-			if (jsCMD_T == S2H_CONTROL_RELAY) {
+			if (jsCMD_T == CONTROL_GARDEN_NODE) {
 				String jsLIGHT = commands["LIGHT"].as<String>();
 				String jsFAN = commands["FAN"].as<String>();
 				String jsSPRAY = commands["SPRAY"].as<String>();
@@ -187,7 +187,7 @@ void parseJsonFromServer(String& json) {
 				upload_relay_hub_status();
 			}
 		}
-		else {
+		else if (jsDEST != SERVER) {
 			Dprintln(F("Send to RF: "));
 			Dprintln(mqtt_Message);
 			RF.print(mqtt_Message);
@@ -231,7 +231,7 @@ void mqtt_callback(char* topic, uint8_t* payload, unsigned int length) {
 		//Date: Mon, 19 Jun 2017 13:41:44 GMT
 		timeStr = mqtt_Message.substring(23, 31);
 		Dprintln(timeStr);
-
+		 
 	}
 
 	//control SPRAY, light, fan
@@ -388,7 +388,7 @@ void upload_relay_hub_status() {
 	jsDataRelayHub[HUB_ID] = HubID;
 	jsDataRelayHub[SOURCE] = HubID;
 	jsDataRelayHub[DEST] = SERVER;
-	jsDataRelayHub[CMD_T] = int(H2S_UPDATE_HUB_STATUS);
+	jsDataRelayHub[CMD_T] = int(UPDATE_DATA_GARDEN_HUB);
 	jsDataRelayHub[LIGHT] = STT_LIGHT == STT_ON ? ON : OFF;
 	jsDataRelayHub[FAN] = STT_FAN == STT_ON ? ON : ON;
 	jsDataRelayHub[SPRAY] = STT_SPRAY == STT_ON ? ON : ON;

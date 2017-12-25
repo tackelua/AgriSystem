@@ -23,6 +23,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\..\TRONG_DAT_APIs.txt" />
+    <Text Include="..\..\APIs_GARDEN_HARDWARES_SIDE.h" />
   </ItemGroup>
 </Project>
