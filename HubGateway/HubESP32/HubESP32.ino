@@ -6,7 +6,7 @@
 
 HardwareSerial Serial2(2);
 
-#define _firmwareVersion = "0.1.1" " " __DATE__ " " __TIME__;
+#define _firmwareVersion ("0.1.1" " " __DATE__ " " __TIME__)
 
 #define DEBUG		Serial
 #define Dprint		DEBUG.print
@@ -56,12 +56,12 @@ enum COMMAND_TYPE {
 	CONTROL_ENVIROMENT_MONITOR,
 	CONTROL_TANK_CONTROLER,
 
-	GET_DATA_GARDEN_HUB = 10,
+	GET_DATA_GARDEN_HUB,
 	GET_DATA_GARDEN_NODE,
 	GET_DATA_ENVIROMENT_MONITOR,
 	GET_DATA_TANK_CONTROLER,
 
-	UPDATE_DATA_GARDEN_HUB = 20,
+	UPDATE_DATA_GARDEN_HUB,
 	UPDATE_DATA_GARDEN_NODE,
 	UPDATE_DATA_ENVIROMENT_MONITOR,
 	UPDATE_DATA_TANK_CONTROLER,
@@ -166,18 +166,18 @@ void parseJsonFromServer(String& json) {
 		return;
 	}
 
-	String jsMES_ID = commands["MES_ID"].as<String>();
-	String jsHUB_ID = commands["HUB_ID"].as<String>();
-	String jsSOURCE = commands["SOURCE"].as<String>();
-	String jsDEST = commands["DEST"].as<String>();
-	int jsCMD_T = commands["CMD_T"].as<int>();
+	String jsMES_ID = commands[MES_ID].as<String>();
+	String jsHUB_ID = commands[HUB_ID].as<String>();
+	String jsSOURCE = commands[SOURCE].as<String>();
+	String jsDEST = commands[DEST].as<String>();
+	int jsCMD_T = commands[CMD_T].as<int>();
 	if (jsHUB_ID == HubID) {
 		if (jsDEST == HubID) {
 			if (jsCMD_T == CONTROL_GARDEN_NODE) {
-				String jsLIGHT = commands["LIGHT"].as<String>();
-				String jsFAN = commands["FAN"].as<String>();
-				String jsSPRAY = commands["SPRAY"].as<String>();
-				String jsCOVER = commands["COVER"].as<String>();
+				String jsLIGHT = commands[LIGHT].as<String>();
+				String jsFAN = commands[FAN].as<String>();
+				String jsSPRAY = commands[SPRAY].as<String>();
+				String jsCOVER = commands[COVER].as<String>();
 
 				control_relay_hub(HPIN_LIGHT, jsLIGHT);
 				control_relay_hub(HPIN_FAN, jsFAN);
@@ -314,7 +314,7 @@ void hardware_init() {
 	Dprintln(F("\r\n### E S P ###"));
 
 	RF.begin(9600);
-	RF.setTimeout(10);
+	RF.setTimeout(100);
 
 	pinMode(HPIN_LIGHT, OUTPUT);
 	pinMode(HPIN_FAN, OUTPUT);
@@ -399,25 +399,32 @@ void upload_relay_hub_status() {
 	mqtt_publish(MQTT_TOPIC_MAIN, dataRelayHub, true);
 }
 
-void handle_node_communicate() {
+void handle_rf_communicate() {
 	String rf_Message;
 	if (RF.available()) {
 		rf_Message = RF.readString();
+		rf_Message.trim();
+		Dprint(F("RF >>> "));
+		Dprintln(rf_Message);
+		RF.print(F("RF>> "));
+		RF.println(rf_Message);
 		DynamicJsonBuffer jsonBufferNodeData(500);
 		JsonObject& nodeData = jsonBufferNodeData.parseObject(rf_Message);
 		
 		if (!nodeData.success()) {
 			Dprintln(F("#ERR rf_Message invalid"));
-			Dprintln(mqtt_Message);
+			Dprintln(rf_Message);
 			Dprintln();
+			return;
 		}
 
 		String _hubID = nodeData[HUB_ID].as<String>();
 		String _DEST = nodeData[DEST].as<String>();
-		if ((_hubID == HubID) && (_DEST != HubID)) {
-			mqtt_publish(MQTT_TOPIC_MAIN, rf_Message, false);
+		String _SOURCE = nodeData[SOURCE].as<String>();
+		if ((_hubID == HubID)/* && (_DEST != HubID)*/) {
+			mqtt_publish(MQTT_TOPIC_MAIN + "/" + _SOURCE, rf_Message, true);
 		}
-	}
+	} 
 }
 #pragma endregion
 
@@ -427,13 +434,16 @@ void setup()
 	hardware_init();
 
 	wifi_init();
+	WiFi.waitForConnectResult();
+	Dprint(F("Local IP: "));
+	Dprintln(WiFi.localIP());
+
 	mqtt_init();
 }
 
 void loop()
 {
 	mqtt_loop();
-	handle_node_communicate();
+	handle_rf_communicate();
 	delay(0);
-
 }

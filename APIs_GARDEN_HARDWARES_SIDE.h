@@ -1,7 +1,7 @@
 ﻿#define IGNORE_THIS_FILE
 #ifndef IGNORE_THIS_FILE
 
-#define API_VERSION  "0.1.2"
+#define API_VERSION  "0.1.3"
 
 /*
 --------------------------------------------------------------------------------------------------------
@@ -67,15 +67,15 @@ enum NODE_TYPE {
 			"OFF"
 		"LED_MOSFET  Đèn quang hợp, có thể điều chỉnh độ sáng
 			"PC<PERCENT>" : "PC45", "PC78"
-		"TEMP"
+		"S_TEMP"
 			"<float>"
-		"HUMI"
+		"S_HUMI"
 			"<float>"
-		"LIGHT"
+		"S_LIGHT"
 			"<float>"
-		"PH"
+		"S_PH"
 			"<float>"
-		"EC"
+		"S_EC"
 			"<float>"
 			
 	"ENVIROMENT_MONITOR"
@@ -122,8 +122,8 @@ CONTROL_GARDEN_HUB
 		"FAN"		 : "ON",
 		"SPRAY"		 : "ON",
 		"COVER"		 : "OFF", //sẽ có 3 giá trị cho cái mái che này: ON, OFF, STOP. ON = OPEN, OFF = CLOSE
-		"TEMP"		 : "<float>",
-		"HUMI"		 : "<float>",
+		"S_TEMP"	 : "<float>",
+		"S_HUMI"	 : "<float>",
 		
 	}
 		
@@ -189,11 +189,11 @@ UPDATE_DATA_GARDEN_NODE
 		"LIGHT"		 : "OFF",
 		"LED_MOSFET" : "PC45",
 		
-		"TEMP"		 : "<float>",
-		"HUMI"		 : "<float>",
-		"LIGHT"		 : "<float>",
-		"PH"		 : "<float>",
-		"EC"		 : "<float>"
+		"S_TEMP"	 : "<float>",
+		"S_HUMI"	 : "<float>",
+		"S_LIGHT"	 : "<float>",
+		"S_PH"		 : "<float>",
+		"S_EC"		 : "<float>"
 	}
 #end region
 
@@ -219,11 +219,11 @@ UPDATE_DATA_ENVIROMENT_MONITOR
 		"DEST"		 : "",
 		"CMD_T"		 : GET_DATA_ENVIROMENT_MONITOR,
 		
-		"TEMP"		 : "<float>",
-		"HUMI"		 : "<float>",
-		"LIGHT"		 : "<float>",
-		"RAIN"		 : "<float>",
-		"WIND"		 : "<float>"
+		"S_TEMP"		 : "<float>",
+		"S_HUMI"		 : "<float>",
+		"S_LIGHT"		 : "<float>",
+		"S_RAIN"		 : "<float>",
+		"S_WIND"		 : "<float>"
 	}
 
 #end region
