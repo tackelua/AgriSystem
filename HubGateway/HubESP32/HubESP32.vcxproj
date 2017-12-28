@@ -89,6 +89,9 @@
   <ItemGroup>
     <Text Include="..\..\APIs_GARDEN_HARDWARES_SIDE.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="f2af3ce3-8239-4e93-8c5c-09baec27394d.jpg" />
+  </ItemGroup>
   <PropertyGroup>
     <DebuggerFlavor>VisualMicroDebugger</DebuggerFlavor>
   </PropertyGroup>

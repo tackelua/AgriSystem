@@ -1,4 +1,4 @@
-#include <esp_system.h>
+﻿#include <esp_system.h>
 #include <WiFiClient.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
@@ -6,7 +6,7 @@
 
 HardwareSerial Serial2(2);
 
-#define _firmwareVersion ("0.1.1" " " __DATE__ " " __TIME__)
+#define _firmwareVersion ("0.1.2" " " __DATE__ " " __TIME__)
 
 #define DEBUG		Serial
 #define Dprint		DEBUG.print
@@ -154,9 +154,10 @@ WiFiClient mqtt_espClient;
 PubSubClient mqtt_client(mqtt_espClient);
 
 String timeStr;
-String mqtt_Message(500);
+String mqtt_Message;
+String LibsNodes = "{}"; //String json chứa Libs của tất cả các Nodes
 
-void parseJsonFromServer(String& json) {
+void parseJsonMainFromServer(String& json) {
 	StaticJsonBuffer<500> jsonBuffer;
 	JsonObject& commands = jsonBuffer.parseObject(mqtt_Message);
 
@@ -196,6 +197,86 @@ void parseJsonFromServer(String& json) {
 	}
 }
 
+void parseJsonLibsFromServer(String& json) {
+	//Phân tích json và lưu vào LibsNodes
+	//Gửi json đến Node
+
+	/* LibsNodes
+	{
+		"NODE1":{
+			"TRAY_ID":"ABC",
+			"HUB_CODE":"AB10027",
+			"LIGHT_MIN":1,
+			"LIGHT_MAX":1,
+			"HUMI_MIN":1,
+			"HUMI_MAX":1,
+			"TEMP_MIN":1,
+			"TEMP_MAX":1,
+			"AUTO_STATUS":1,
+			"INTERVAL_UPDATE":10
+		},
+		"NODE2":{
+			"TRAY_ID":"ABC",
+			"HUB_CODE":"AB10027",
+			"LIGHT_MIN":1,
+			"LIGHT_MAX":1,
+			"HUMI_MIN":1,
+			"HUMI_MAX":1,
+			"TEMP_MIN":1,
+			"TEMP_MAX":1,
+			"AUTO_STATUS":1,
+			"INTERVAL_UPDATE":10
+		}
+	}
+	*/
+
+	StaticJsonBuffer<500> jsonBufferServer;
+	JsonObject& nodeLib = jsonBufferServer.parseObject(json);
+	if (!nodeLib.success()) {
+		Dprintln(F("#ERR json invalid"));
+		Dprintln();
+		return;
+	}
+	String TRAYID = nodeLib["TRAY_ID"].asString();
+	String HUBCODE = nodeLib["HUB_CODE"].asString();
+	int LIGHTMIN = nodeLib["LIGHT_MIN"].as<int>();
+	int LIGHTMAX = nodeLib["LIGHT_MAX"].as<int>();
+	int HUMIMIN = nodeLib["HUMI_MIN"].as<int>();
+	int HUMIMAX = nodeLib["HUMI_MAX"].as<int>();
+	int TEMPMIN = nodeLib["TEMP_MIN"].as<int>();
+	int TEMPMAX = nodeLib["TEMP_MAX"].as<int>();
+	int AUTOSTATUS = nodeLib["AUTO_STATUS"].as<int>();
+	int INTERVALUPDATE = nodeLib["INTERVAL_UPDATE"].as<int>();
+
+	StaticJsonBuffer<1000> jsonBuffer;
+	JsonObject& LibsNodesData = jsonBuffer.parseObject(LibsNodes);
+	if (!LibsNodesData.success()) {
+		Dprintln(F("#ERR LibsNodes invalid"));
+		Dprintln();
+		return;
+	}
+
+	JsonObject& TRAYDATA = LibsNodesData.createNestedObject(TRAYID);
+	TRAYDATA["TRAY_ID"] = TRAYID;
+	TRAYDATA["HUB_CODE"] = HUBCODE;
+	TRAYDATA["LIGHT_MIN"] = LIGHTMIN;
+	TRAYDATA["LIGHT_MAX"] = LIGHTMAX;
+	TRAYDATA["HUMI_MIN"] = HUMIMIN;
+	TRAYDATA["HUMI_MAX"] = HUMIMAX;
+	TRAYDATA["TEMP_MIN"] = TEMPMIN;
+	TRAYDATA["TEMP_MAX"] = TEMPMAX;
+	TRAYDATA["AUTO_STATUS"] = AUTOSTATUS;
+	TRAYDATA["INTERVAL_UPDATE"] = INTERVALUPDATE;
+
+	Dprintln(F("\r\nLibsNodes"));
+	LibsNodes = "";
+	LibsNodesData.printTo(LibsNodes);
+	LibsNodesData.prettyPrintTo(DEBUG);
+	Dprintln();
+
+	RF.print(json);
+}
+
 void mqtt_callback(char* topic, uint8_t* payload, unsigned int length) {
 	ulong t = millis();
 	//Dprint(F("\r\n#1 FREE RAM : "));
@@ -231,13 +312,16 @@ void mqtt_callback(char* topic, uint8_t* payload, unsigned int length) {
 		//Date: Mon, 19 Jun 2017 13:41:44 GMT
 		timeStr = mqtt_Message.substring(23, 31);
 		Dprintln(timeStr);
-		 
+
 	}
 
 	//control SPRAY, light, fan
 	else if (topicStr == MQTT_TOPIC_MAIN)
 	{
-		parseJsonFromServer(mqtt_Message);
+		parseJsonMainFromServer(mqtt_Message);
+	}
+	else if (topicStr.startsWith(MQTT_TOPIC_MAIN + "/LIBS/")) {
+		parseJsonLibsFromServer(mqtt_Message);
 	}
 
 	Dprint(F("#2 FREE RAM : "));
@@ -257,7 +341,7 @@ void mqtt_reconnect() {  // Loop until we're reconnected
 			mqtt_client.publish(MQTT_TOPIC_MAIN.c_str(), h_online.c_str(), true);
 			mqtt_client.subscribe(MQTT_TOPIC_MAIN.c_str());
 			String libs = MQTT_TOPIC_MAIN + "/LIBS/#";
-			mqtt_client.subscribe(MQTT_TOPIC_MAIN.c_str());
+			mqtt_client.subscribe(libs.c_str());
 		}
 		else {
 			Dprint(F("failed, rc="));
@@ -326,6 +410,7 @@ void hardware_init() {
 	MQTT_TOPIC_MAIN = "AGRISYSTEM/" + HubID;
 	Dprintf("\r\n\r\nHID=%s\r\n\r\n", HubID.c_str());
 	Dprintln(HubID);
+	LibsNodes.reserve(1000);
 }
 
 void control_relay_hub(int HPIN, String STT, bool publish) {
@@ -410,10 +495,10 @@ void handle_rf_communicate() {
 		RF.println(rf_Message);
 		DynamicJsonBuffer jsonBufferNodeData(500);
 		JsonObject& nodeData = jsonBufferNodeData.parseObject(rf_Message);
-		
+
 		if (!nodeData.success()) {
 			Dprintln(F("#ERR rf_Message invalid"));
-			Dprintln(rf_Message);
+			//Dprintln(rf_Message);
 			Dprintln();
 			return;
 		}
@@ -421,10 +506,27 @@ void handle_rf_communicate() {
 		String _hubID = nodeData[HUB_ID].as<String>();
 		String _DEST = nodeData[DEST].as<String>();
 		String _SOURCE = nodeData[SOURCE].as<String>();
-		if ((_hubID == HubID)/* && (_DEST != HubID)*/) {
-			mqtt_publish(MQTT_TOPIC_MAIN + "/" + _SOURCE, rf_Message, true);
+		if (_hubID == HubID) {
+			String nodeDataString;
+			if (_DEST == HubID) {
+				nodeData[DEST] = SERVER;
+				nodeData.printTo(nodeDataString);
+			}
+			else {
+				nodeDataString = rf_Message;
+			}
+			mqtt_publish(MQTT_TOPIC_MAIN + "/" + _SOURCE, nodeDataString, true);
 		}
-	} 
+	}
+}
+
+void handle_serial() {
+	if (Serial.available()) {
+		String s = Serial.readString();
+		Serial.print(F(">>> "));
+		Serial.println(s);
+		RF.print(s);
+	}
 }
 #pragma endregion
 
@@ -445,5 +547,6 @@ void loop()
 {
 	mqtt_loop();
 	handle_rf_communicate();
+	handle_serial();
 	delay(0);
 }
