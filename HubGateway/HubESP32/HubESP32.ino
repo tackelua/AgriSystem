@@ -3,10 +3,14 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <ArduinoJson.h>
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
+
+#define _firmwareVersion ("0.1.3" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
-#define _firmwareVersion ("0.1.2" " " __DATE__ " " __TIME__)
+LiquidCrystal_I2C lcd(0x3f, 20, 4);
 
 #define DEBUG		Serial
 #define Dprint		DEBUG.print
@@ -89,6 +93,87 @@ String MQTT_TOPIC_MAIN;
 
 
 void control_relay_hub(int HPIN, String STT, bool publish = false);
+
+//-------------------------------------------------------------------------
+//LCD
+#pragma region LCD
+
+enum ALIGN {
+	LEFT,
+	MIDDLE,
+	RIGHT
+};
+enum LINE {
+	LINE1,
+	LINE2,
+	LINE3,
+	LINE4
+};
+void lcd_print(String data, int line, int align = MIDDLE, int padding_left = 0) {
+	if (line >= 4) { return; }
+	String data_fullLine;
+	int numSpace = 0;
+	switch (align)
+	{
+	case LEFT:
+		data_fullLine = data;
+		numSpace = 20 - data.length();
+		for (int i = 0; i < numSpace; i++)
+		{
+			data_fullLine += " ";
+		}
+		break;
+	case MIDDLE:
+		numSpace = (20 - data.length()) / 2;
+		for (int i = 0; i < numSpace; i++)
+		{
+			data_fullLine += " ";
+		}
+		data_fullLine += data;
+		for (int i = 0; i < numSpace; i++)
+		{
+			data_fullLine += " ";
+		}
+		break;
+	case RIGHT:
+		numSpace = 20 - data.length();
+		for (int i = 0; i < numSpace; i++)
+		{
+			data_fullLine += " ";
+		}
+		data_fullLine += data;
+		break;
+	default:
+		break;
+	}
+	for (int i = 0; i < padding_left; i++)
+	{
+		data_fullLine = " " + data_fullLine;
+	}
+
+	if (line < 4) {
+		lcd.setCursor(0, line);
+		lcd.print(data_fullLine);
+	}
+}
+
+void lcd_init() {
+	lcd.begin(21, 22);
+	lcd.backlight();
+	lcd_print("AGRISYSTEM/" + HubID, LINE1, MIDDLE);
+	lcd_print("IoT Labs - MIC@DTU", LINE2, MIDDLE);
+	lcd_print("Starting", LINE3, MIDDLE);
+}
+
+void lcd_showMainMenu() {
+	lcd.clear();
+	lcd_print("HUB STATUS", LINE1, LEFT, 1);
+	lcd_print("NODE ID 1", LINE2, LEFT, 1);
+	lcd_print("NODE ID 2", LINE3, LEFT, 1);
+
+}
+#pragma endregion
+
 //=========================================================================
 
 #pragma region WiFi Init
@@ -145,6 +230,7 @@ void wifi_init() {
 
 #pragma region MQTT
 
+#define asdf BUILTIN_LED
 const char* mqtt_server = "mic.duytan.edu.vn";
 const char* mqtt_user = "Mic@DTU2017";
 const char* mqtt_password = "Mic@DTU2017!@#";
@@ -155,7 +241,10 @@ PubSubClient mqtt_client(mqtt_espClient);
 
 String timeStr;
 String mqtt_Message;
+
 String LibsNodes = "{}"; //String json chứa Libs của tất cả các Nodes
+StaticJsonBuffer<1000> jsonBuffer;
+JsonObject& LibsNodesJsObj = jsonBuffer.parseObject(LibsNodes);
 
 void parseJsonMainFromServer(String& json) {
 	StaticJsonBuffer<500> jsonBuffer;
@@ -189,10 +278,15 @@ void parseJsonMainFromServer(String& json) {
 			}
 		}
 		else if (jsDEST != SERVER) {
-			Dprintln(F("Send to RF: "));
+			Dprintln(F("#SEND to RF: "));
+			ulong t = millis();
+			Dprintln(millis() - t);
+			t = millis();
 			Dprintln(mqtt_Message);
-			RF.print(mqtt_Message);
-			RF.flush();
+			Dflush();
+			Dprintln(millis() - t);
+			//Rprintln();
+			Rprintln(mqtt_Message);
 		}
 	}
 }
@@ -248,15 +342,7 @@ void parseJsonLibsFromServer(String& json) {
 	int AUTOSTATUS = nodeLib["AUTO_STATUS"].as<int>();
 	int INTERVALUPDATE = nodeLib["INTERVAL_UPDATE"].as<int>();
 
-	StaticJsonBuffer<1000> jsonBuffer;
-	JsonObject& LibsNodesData = jsonBuffer.parseObject(LibsNodes);
-	if (!LibsNodesData.success()) {
-		Dprintln(F("#ERR LibsNodes invalid"));
-		Dprintln();
-		return;
-	}
-
-	JsonObject& TRAYDATA = LibsNodesData.createNestedObject(TRAYID);
+	JsonObject& TRAYDATA = LibsNodesJsObj.createNestedObject(TRAYID);
 	TRAYDATA["TRAY_ID"] = TRAYID;
 	TRAYDATA["HUB_CODE"] = HUBCODE;
 	TRAYDATA["LIGHT_MIN"] = LIGHTMIN;
@@ -270,18 +356,18 @@ void parseJsonLibsFromServer(String& json) {
 
 	Dprintln(F("\r\nLibsNodes"));
 	LibsNodes = "";
-	LibsNodesData.printTo(LibsNodes);
-	LibsNodesData.prettyPrintTo(DEBUG);
+	LibsNodesJsObj.printTo(LibsNodes);
+	LibsNodesJsObj.prettyPrintTo(DEBUG);
 	Dprintln();
 
-	RF.print(json);
+	Rprintln(json);
 }
 
 void mqtt_callback(char* topic, uint8_t* payload, unsigned int length) {
 	ulong t = millis();
 	//Dprint(F("\r\n#1 FREE RAM : "));
 	//Dprintln(ESP.getFreeHeap());
-	Dprintln(F("\r\n>>>"));
+	Dprintln(F("\r\nMQTT >>>"));
 
 	String topicStr = topic;
 	//Dprintln(topicStr);
@@ -368,7 +454,7 @@ void mqtt_loop() {
 }
 
 bool mqtt_publish(String topic, String payload, bool retain) {
-	Dprint(F("MQTT publish to topic: "));
+	Dprint(F("\r\nMQTT publish to topic: "));
 	Dprintln(topic);
 	Dprintln(payload);
 	Dprintln();
@@ -394,10 +480,10 @@ int STT_COVER = STT_OFF;
 void hardware_init() {
 	delay(10);
 	DEBUG.begin(115200);
-	DEBUG.setTimeout(5);
+	DEBUG.setTimeout(50);
 	Dprintln(F("\r\n### E S P ###"));
 
-	RF.begin(9600);
+	RF.begin(115200);
 	RF.setTimeout(100);
 
 	pinMode(HPIN_LIGHT, OUTPUT);
@@ -410,6 +496,9 @@ void hardware_init() {
 	MQTT_TOPIC_MAIN = "AGRISYSTEM/" + HubID;
 	Dprintf("\r\n\r\nHID=%s\r\n\r\n", HubID.c_str());
 	Dprintln(HubID);
+
+	lcd_init();
+
 	LibsNodes.reserve(1000);
 }
 
@@ -485,47 +574,52 @@ void upload_relay_hub_status() {
 }
 
 void handle_rf_communicate() {
+	if (RF.available() <= 0) {
+		return;
+	}
 	String rf_Message;
-	if (RF.available()) {
-		rf_Message = RF.readString();
-		rf_Message.trim();
-		Dprint(F("RF >>> "));
-		Dprintln(rf_Message);
-		RF.print(F("RF>> "));
-		RF.println(rf_Message);
-		DynamicJsonBuffer jsonBufferNodeData(500);
-		JsonObject& nodeData = jsonBufferNodeData.parseObject(rf_Message);
 
-		if (!nodeData.success()) {
-			Dprintln(F("#ERR rf_Message invalid"));
-			//Dprintln(rf_Message);
-			Dprintln();
-			return;
-		}
+	rf_Message = RF.readStringUntil('\n');
+	rf_Message.trim();
+	if (rf_Message.length() == 0) {
+		return;
+	}
+	Dprintln(F("\r\nRF >>> "));
+	Dprintln(rf_Message);
+	//Rprint(F("RF>> "));
+	//Rprintln(rf_Message);
+	DynamicJsonBuffer jsonBufferNodeData(500);
+	JsonObject& nodeData = jsonBufferNodeData.parseObject(rf_Message);
 
-		String _hubID = nodeData[HUB_ID].as<String>();
-		String _DEST = nodeData[DEST].as<String>();
-		String _SOURCE = nodeData[SOURCE].as<String>();
-		if (_hubID == HubID) {
-			String nodeDataString;
-			if (_DEST == HubID) {
-				nodeData[DEST] = SERVER;
-				nodeData.printTo(nodeDataString);
-			}
-			else {
-				nodeDataString = rf_Message;
-			}
-			mqtt_publish(MQTT_TOPIC_MAIN + "/" + _SOURCE, nodeDataString, true);
+	if (!nodeData.success()) {
+		Dprintln(F("#ERR rf_Message invalid"));
+		//Dprintln(rf_Message);
+		Dprintln();
+		return;
+	}
+
+	String _hubID = nodeData[HUB_ID].as<String>();
+	String _DEST = nodeData[DEST].as<String>();
+	String _SOURCE = nodeData[SOURCE].as<String>();
+	if (_hubID == HubID) {
+		String nodeDataString;
+		if (_DEST == HubID) {
+			nodeData[DEST] = SERVER;
+			nodeData.printTo(nodeDataString);
 		}
+		else {
+			nodeDataString = rf_Message;
+		}
+		mqtt_publish(MQTT_TOPIC_MAIN + "/" + _SOURCE, nodeDataString, true);
 	}
 }
 
 void handle_serial() {
 	if (Serial.available()) {
 		String s = Serial.readString();
-		Serial.print(F(">>> "));
-		Serial.println(s);
-		RF.print(s);
+		Dprintln(F("Serial >>> "));
+		Dprintln(s);
+		Rprintln(s);
 	}
 }
 #pragma endregion
@@ -537,10 +631,18 @@ void setup()
 
 	wifi_init();
 	WiFi.waitForConnectResult();
+	if (WiFi.localIP() == IPAddress(0, 0, 0, 0)) {
+		ESP.restart();
+	}
 	Dprint(F("Local IP: "));
 	Dprintln(WiFi.localIP());
 
+	lcd_print("WiFi connected", LINE3, MIDDLE);
+	lcd_print(WiFi.localIP().toString(), LINE4, MIDDLE);
+
 	mqtt_init();
+
+	lcd_showMainMenu();
 }
 
 void loop()

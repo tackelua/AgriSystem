@@ -16,6 +16,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="HubESP32.ino" />
+    <None Include="GardenHub Schematic Prints.pdf">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="__vm\.HubESP32.vsarduino.h">

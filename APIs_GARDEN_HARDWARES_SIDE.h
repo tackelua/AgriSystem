@@ -219,11 +219,11 @@ UPDATE_DATA_ENVIROMENT_MONITOR
 		"DEST"		 : "",
 		"CMD_T"		 : GET_DATA_ENVIROMENT_MONITOR,
 		
-		"S_TEMP"		 : "<float>",
-		"S_HUMI"		 : "<float>",
-		"S_LIGHT"		 : "<float>",
-		"S_RAIN"		 : "<float>",
-		"S_WIND"		 : "<float>"
+		"S_TEMP"	 : "<float>",
+		"S_HUMI"	 : "<float>",
+		"S_LIGHT"	 : "<float>",
+		"S_RAIN"	 : "<float>",
+		"S_WIND"	 : "<float>"
 	}
 
 #end region
