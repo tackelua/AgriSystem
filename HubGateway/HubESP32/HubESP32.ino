@@ -6,7 +6,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _firmwareVersion ("0.1.3" " " __DATE__ " " __TIME__)
+#define _firmwareVersion ("0.1.4" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -24,13 +24,25 @@ LiquidCrystal_I2C lcd(0x3f, 20, 4);
 #define Rprintf		RF.printf
 #define Rflush		RF.flush
 
-#define LED_STATUS		LED_BUILTIN
-#define HPIN_LIGHT		34
-#define HPIN_FAN		35
-#define HPIN_SPRAY		32
-#define HPIN_COVER		-1 //virtual
-#define HPIN_COVER_ON	33
-#define HPIN_COVER_OFF	25
+#define LED_STATUS			LED_BUILTIN
+#define HPIN_LIGHT			33
+#define HPIN_FAN			25
+#define HPIN_SPRAY			26
+#define HPIN_COVER			-1 //virtual
+#define HPIN_COVER_OPEN		27
+#define HPIN_COVER_CLOSE	14
+//--
+#define HPIN_BUTTON			34
+enum BUTTON {
+	BT_NOBUTTON,
+	BT_LEFT,
+	BT_BOTTON,
+	BT_RIGHT,
+	BT_UP,
+	BT_BACK,	//yellow
+	BT_ENTER	//red
+};
+
 
 #define CMD_T		"CMD_T"
 #define MES_ID		"MES_ID"
@@ -178,7 +190,18 @@ void lcd_showMainMenu() {
 
 #pragma region WiFi Init
 void wifi_init() {
-	WiFi.begin("IoT Wifi", "mic@dtu12345678()"); return;
+	WiFi.begin("IoT Wifi", "mic@dtu12345678()"); 
+	WiFi.waitForConnectResult();
+	while (1) {
+		if (WiFi.isConnected()) {
+			break;
+		}
+		delay(1);
+	}
+	Dprint(F("Local IP: "));
+	Dprintln(WiFi.localIP()); 
+
+	return;
 
 	WiFi.setAutoConnect(true);
 	WiFi.setAutoReconnect(true);
@@ -242,9 +265,8 @@ PubSubClient mqtt_client(mqtt_espClient);
 String timeStr;
 String mqtt_Message;
 
-String LibsNodes = "{}"; //String json chứa Libs của tất cả các Nodes
-StaticJsonBuffer<1000> jsonBuffer;
-JsonObject& LibsNodesJsObj = jsonBuffer.parseObject(LibsNodes);
+StaticJsonBuffer<10000> jsonBuffer;
+JsonObject& LibsNodesJsObj = jsonBuffer.parseObject("{\"TOTAL\": 2}");
 
 void parseJsonMainFromServer(String& json) {
 	StaticJsonBuffer<500> jsonBuffer;
@@ -291,11 +313,16 @@ void parseJsonMainFromServer(String& json) {
 	}
 }
 
+String listNodeName; 
+bool check_NodeIsExist_in_LibsNodesJsObj(String trayID){
+
+}
+
 void parseJsonLibsFromServer(String& json) {
 	//Phân tích json và lưu vào LibsNodes
 	//Gửi json đến Node
 
-	/* LibsNodes
+	/* LibsNodesJsObj
 	{
 		"NODE1":{
 			"TRAY_ID":"ABC",
@@ -333,6 +360,7 @@ void parseJsonLibsFromServer(String& json) {
 	}
 	String TRAYID = nodeLib["TRAY_ID"].asString();
 	String HUBCODE = nodeLib["HUB_CODE"].asString();
+	String TRAYNAME = nodeLib["TRAY_NAME"].asString();
 	int LIGHTMIN = nodeLib["LIGHT_MIN"].as<int>();
 	int LIGHTMAX = nodeLib["LIGHT_MAX"].as<int>();
 	int HUMIMIN = nodeLib["HUMI_MIN"].as<int>();
@@ -345,6 +373,7 @@ void parseJsonLibsFromServer(String& json) {
 	JsonObject& TRAYDATA = LibsNodesJsObj.createNestedObject(TRAYID);
 	TRAYDATA["TRAY_ID"] = TRAYID;
 	TRAYDATA["HUB_CODE"] = HUBCODE;
+	TRAYDATA["TRAY_NAME"] = TRAYNAME;
 	TRAYDATA["LIGHT_MIN"] = LIGHTMIN;
 	TRAYDATA["LIGHT_MAX"] = LIGHTMAX;
 	TRAYDATA["HUMI_MIN"] = HUMIMIN;
@@ -355,8 +384,6 @@ void parseJsonLibsFromServer(String& json) {
 	TRAYDATA["INTERVAL_UPDATE"] = INTERVALUPDATE;
 
 	Dprintln(F("\r\nLibsNodes"));
-	LibsNodes = "";
-	LibsNodesJsObj.printTo(LibsNodes);
 	LibsNodesJsObj.prettyPrintTo(DEBUG);
 	Dprintln();
 
@@ -483,13 +510,43 @@ void hardware_init() {
 	DEBUG.setTimeout(50);
 	Dprintln(F("\r\n### E S P ###"));
 
-	RF.begin(115200);
+	RF.begin(9600);
 	RF.setTimeout(100);
 
 	pinMode(HPIN_LIGHT, OUTPUT);
 	pinMode(HPIN_FAN, OUTPUT);
 	pinMode(HPIN_SPRAY, OUTPUT);
-	pinMode(HPIN_COVER, OUTPUT);
+	pinMode(HPIN_COVER_OPEN, OUTPUT);
+	pinMode(HPIN_COVER_CLOSE, OUTPUT);
+	pinMode(HPIN_BUTTON, INPUT);
+	//Dprintln("LIGHT ON");  digitalWrite(HPIN_LIGHT, HIGH);							delay(500);
+	//Dprintln("LIGHT OFF"); digitalWrite(HPIN_LIGHT, LOW);							delay(500);
+	//																				delay(500);
+	//Dprintln("FAN ON");  digitalWrite(HPIN_FAN, HIGH);								delay(500);
+	//Dprintln("FAN OFF"); digitalWrite(HPIN_FAN, LOW);								delay(500);
+	//																				delay(500);
+	//Dprintln("SPRAY ON");  digitalWrite(HPIN_SPRAY, HIGH);							delay(500);
+	//Dprintln("SPRAY OFF"); digitalWrite(HPIN_SPRAY, LOW);							delay(500);
+	//																				delay(500);
+	//Dprintln("COVER_OPEN ON");  digitalWrite(HPIN_COVER_OPEN, HIGH);				delay(500);
+	//Dprintln("COVER_OPEN OFF"); digitalWrite(HPIN_COVER_OPEN, LOW);					delay(500);
+	//																				delay(500);
+	//Dprintln("COVER_CLOSE ON");  digitalWrite(HPIN_COVER_CLOSE, HIGH);				delay(500);
+	//Dprintln("COVER_CLOSE OFF"); digitalWrite(HPIN_COVER_CLOSE, LOW);				delay(500);
+	//Dprintln("LIGHT ON");  digitalWrite(HPIN_LIGHT, HIGH);							delay(500);
+	//Dprintln("LIGHT OFF"); digitalWrite(HPIN_LIGHT, LOW);							delay(500);
+	//																				delay(500);
+	//Dprintln("FAN ON");  digitalWrite(HPIN_FAN, HIGH);								delay(500);
+	//Dprintln("FAN OFF"); digitalWrite(HPIN_FAN, LOW);								delay(500);
+	//																				delay(500);
+	//Dprintln("SPRAY ON");  digitalWrite(HPIN_SPRAY, HIGH);							delay(500);
+	//Dprintln("SPRAY OFF"); digitalWrite(HPIN_SPRAY, LOW);							delay(500);
+	//																				delay(500);
+	//Dprintln("COVER_OPEN ON");  digitalWrite(HPIN_COVER_OPEN, HIGH);				delay(500);
+	//Dprintln("COVER_OPEN OFF"); digitalWrite(HPIN_COVER_OPEN, LOW);					delay(500);
+	//																				delay(500);
+	//Dprintln("COVER_CLOSE ON");  digitalWrite(HPIN_COVER_CLOSE, HIGH);				delay(500);
+	//Dprintln("COVER_CLOSE OFF"); digitalWrite(HPIN_COVER_CLOSE, LOW);				delay(500);
 
 	Dprintln();
 	HubID = getID();
@@ -499,7 +556,6 @@ void hardware_init() {
 
 	lcd_init();
 
-	LibsNodes.reserve(1000);
 }
 
 void control_relay_hub(int HPIN, String STT, bool publish) {
@@ -538,18 +594,18 @@ void control_relay_hub(int HPIN, String STT, bool publish) {
 	else if (HPIN == HPIN_COVER) {
 		if (STT == ON) {
 			STT_COVER = STT_ON;
-			digitalWrite(HPIN_COVER_ON, true);
-			digitalWrite(HPIN_COVER_OFF, false);
+			digitalWrite(HPIN_COVER_OPEN, true);
+			digitalWrite(HPIN_COVER_CLOSE, false);
 		}
 		else if (STT == OFF) {
 			STT_COVER = STT_OFF;
-			digitalWrite(HPIN_COVER_ON, false);
-			digitalWrite(HPIN_COVER_OFF, true);
+			digitalWrite(HPIN_COVER_OPEN, false);
+			digitalWrite(HPIN_COVER_CLOSE, true);
 		}
 		else if (STT == MID) {
 			STT_COVER = STT_OFF;
-			digitalWrite(HPIN_COVER_ON, false);
-			digitalWrite(HPIN_COVER_OFF, false);
+			digitalWrite(HPIN_COVER_OPEN, false);
+			digitalWrite(HPIN_COVER_CLOSE, false);
 		}
 	}
 }
@@ -622,6 +678,43 @@ void handle_serial() {
 		Rprintln(s);
 	}
 }
+
+int button_read() {
+	//	BT_LEFT    : 520	 || 452	 - 588
+	//	BT_BOTTON  : 656	 || 588	 - 760
+	//	BT_RIGHT   : 864	 || 760	 - 1042
+	//	BT_UP	   : 1220	 || 1042 - 1570
+	//	BT_BACK	   : 1920	 || 1570 - 2657
+	//	BT_ENTER   : 4095	 || 2657 - 4095
+
+	int val = analogRead(HPIN_BUTTON);
+
+	if ((452 < val) && (val <= 588)) {
+		Dprintln(F("BT_LEFT"));
+		return BT_LEFT;
+	}
+	if ((588 < val) && (val <= 760)) {
+		Dprintln(F("BT_BOTTON"));
+		return BT_BOTTON;
+	}
+	if ((760 < val) && (val <= 1042)) {
+		Dprintln(F("BT_RIGHT"));
+		return BT_RIGHT;
+	}
+	if ((1042 < val) && (val <= 1570)) {
+		Dprintln(F("BT_UP"));
+		return BT_UP;
+	}
+	if ((1570 < val) && (val <= 2657)) {
+		Dprintln(F("BT_BACK"));
+		return BT_BACK;
+	}
+	if ((2657 < val) && (val <= 4095)) {
+		Dprintln(F("BT_ENTER"));
+		return BT_ENTER;
+	}
+	return BT_NOBUTTON;
+}
 #pragma endregion
 
 
@@ -629,13 +722,13 @@ void setup()
 {
 	hardware_init();
 
-	wifi_init();
-	WiFi.waitForConnectResult();
-	if (WiFi.localIP() == IPAddress(0, 0, 0, 0)) {
-		ESP.restart();
+	while (true)
+	{
+		button_read();
+		delay(100);
 	}
-	Dprint(F("Local IP: "));
-	Dprintln(WiFi.localIP());
+
+	wifi_init();
 
 	lcd_print("WiFi connected", LINE3, MIDDLE);
 	lcd_print(WiFi.localIP().toString(), LINE4, MIDDLE);

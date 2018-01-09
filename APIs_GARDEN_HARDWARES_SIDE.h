@@ -1,7 +1,12 @@
 ﻿#define IGNORE_THIS_FILE
 #ifndef IGNORE_THIS_FILE
 
-#define API_VERSION  "0.1.3"
+#define API_VERSION  "0.1.4"
+
+/*
+	v0.1.4
+		Add Schedule ON, OFF
+*/
 
 /*
 --------------------------------------------------------------------------------------------------------
@@ -122,9 +127,6 @@ CONTROL_GARDEN_HUB
 		"FAN"		 : "ON",
 		"SPRAY"		 : "ON",
 		"COVER"		 : "OFF", //sẽ có 3 giá trị cho cái mái che này: ON, OFF, STOP. ON = OPEN, OFF = CLOSE
-		"S_TEMP"	 : "<float>",
-		"S_HUMI"	 : "<float>",
-		
 	}
 		
 GET_DATA_GARDEN_HUB
@@ -217,7 +219,7 @@ UPDATE_DATA_ENVIROMENT_MONITOR
 		"HUB_ID"	 : "",
 		"SOURCE"	 : "",
 		"DEST"		 : "",
-		"CMD_T"		 : GET_DATA_ENVIROMENT_MONITOR,
+		"CMD_T"		 : UPDATE_DATA_ENVIROMENT_MONITOR,
 		
 		"S_TEMP"	 : "<float>",
 		"S_HUMI"	 : "<float>",
@@ -276,7 +278,7 @@ Nội dung tùy
    {  
       "TRAY_ID":"ABC",
       "HUB_CODE":"AB10027",
-      // "TRAY_NAME":"Cải",
+      "TRAY_NAME":"Cải", //bỏ dấu please
       // "TRAY_IMAGE":"https://i.imgur.com/zLHjhzW.jpg",
       // "TRAY_CREATED_DATE":"2017-12-22T00:00:00",
       // "TRAY_HARVEST_STATUS":1,
@@ -288,7 +290,8 @@ Nội dung tùy
       "TEMP_MIN":1,
       "TEMP_MAX":1,
       "AUTO_STATUS":1,
-	  "INTERVAL_UPDATE": int(second)
+	  "INTERVAL_UPDATE": int(second),
+	  "SCHELDULE" : "21:00:00_21:10:00, ..." //Giờ bật_tắt
    }
 #end region
 
