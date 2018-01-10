@@ -1,9 +1,11 @@
 ﻿#define IGNORE_THIS_FILE
 #ifndef IGNORE_THIS_FILE
 
-#define API_VERSION  "0.1.4"
+#define API_VERSION  "0.1.5"
 
 /*
+	v0.1.5
+		Fix LIBRARIES
 	v0.1.4
 		Add Schedule ON, OFF
 */
@@ -33,7 +35,9 @@ enum COMMAND_TYPE {
 	UPDATE_DATA_GARDEN_HUB,
 	UPDATE_DATA_GARDEN_NODE,
 	UPDATE_DATA_ENVIROMENT_MONITOR,
-	UPDATE_DATA_TANK_CONTROLER
+	UPDATE_DATA_TANK_CONTROLER,
+
+	LIBS_GARDEN_NODE
 };
 
 enum NODE_TYPE {
@@ -275,9 +279,13 @@ UPDATE_DATA_TANK_CONTROLER
 - HUB sẽ subscribe vào topic "AGRISYSTEM/<HubID>/LIBS/#"
 - Thông tin về thư viện của từng TRAY sẽ được APP or SERVER publish lên topic "AGRISYSTEM/<HubID>/LIBS/<TrayID>" with retain
 Nội dung tùy 
-   {  
-      "TRAY_ID":"ABC",
-      "HUB_CODE":"AB10027",
+   {
+	  "MES_ID"	 : "<string>",
+	  "HUB_ID": "<string>",
+	  "SOURCE" : "<string>",
+	  "DEST" : "<string>",
+	  "CMD_T" : LIBS_GARDEN_NODE,
+
       "TRAY_NAME":"Cải", //bỏ dấu please
       // "TRAY_IMAGE":"https://i.imgur.com/zLHjhzW.jpg",
       // "TRAY_CREATED_DATE":"2017-12-22T00:00:00",
