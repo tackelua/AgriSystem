@@ -126,7 +126,7 @@ CONTROL_GARDEN_HUB
 		"LIGHT"		 : "ON",
 		"FAN"		 : "ON",
 		"SPRAY"		 : "ON",
-		"COVER"		 : "OFF", //sẽ có 3 giá trị cho cái mái che này: ON, OFF, STOP. ON = OPEN, OFF = CLOSE
+		"COVER"		 : "OFF" //sẽ có 3 giá trị cho cái mái che này: ON, OFF, STOP. ON = OPEN, OFF = CLOSE
 	}
 		
 GET_DATA_GARDEN_HUB

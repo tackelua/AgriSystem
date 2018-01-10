@@ -6,7 +6,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _firmwareVersion ("0.1.4" " " __DATE__ " " __TIME__)
+#define _firmwareVersion ("0.1.5" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -36,7 +36,7 @@ LiquidCrystal_I2C lcd(0x3f, 20, 4);
 enum BUTTON {
 	BT_NOBUTTON,
 	BT_LEFT,
-	BT_BOTTON,
+	BT_DOWN,
 	BT_RIGHT,
 	BT_UP,
 	BT_BACK,	//yellow
@@ -67,7 +67,9 @@ enum BUTTON {
 #define HUMI		"HUMI"
 
 enum COMMAND_TYPE {
-	CONTROL_GARDEN_HUB = 0,
+	NO_COMMAND = 0, //phòng trường hợp ko có gì nó tự chuyển thành 0
+
+	CONTROL_GARDEN_HUB,
 	CONTROL_GARDEN_NODE,
 	CONTROL_ENVIROMENT_MONITOR,
 	CONTROL_TANK_CONTROLER,
@@ -190,7 +192,7 @@ void lcd_showMainMenu() {
 
 #pragma region WiFi Init
 void wifi_init() {
-	WiFi.begin("IoT Wifi", "mic@dtu12345678()"); 
+	WiFi.begin("IoT Wifi", "mic@dtu12345678()");
 	WiFi.waitForConnectResult();
 	while (1) {
 		if (WiFi.isConnected()) {
@@ -199,7 +201,7 @@ void wifi_init() {
 		delay(1);
 	}
 	Dprint(F("Local IP: "));
-	Dprintln(WiFi.localIP()); 
+	Dprintln(WiFi.localIP());
 
 	return;
 
@@ -285,7 +287,7 @@ void parseJsonMainFromServer(String& json) {
 	int jsCMD_T = commands[CMD_T].as<int>();
 	if (jsHUB_ID == HubID) {
 		if (jsDEST == HubID) {
-			if (jsCMD_T == CONTROL_GARDEN_NODE) {
+			if (jsCMD_T == CONTROL_GARDEN_HUB) {
 				String jsLIGHT = commands[LIGHT].as<String>();
 				String jsFAN = commands[FAN].as<String>();
 				String jsSPRAY = commands[SPRAY].as<String>();
@@ -298,23 +300,26 @@ void parseJsonMainFromServer(String& json) {
 
 				upload_relay_hub_status();
 			}
+			else if (jsCMD_T == GET_DATA_GARDEN_HUB) {
+				upload_relay_hub_status();
+			}
 		}
 		else if (jsDEST != SERVER) {
 			Dprintln(F("#SEND to RF: "));
-			ulong t = millis();
-			Dprintln(millis() - t);
-			t = millis();
+			//ulong t = millis();
+			//Dprintln(millis() - t);
+			//t = millis();
 			Dprintln(mqtt_Message);
 			Dflush();
-			Dprintln(millis() - t);
+			//Dprintln(millis() - t);
 			//Rprintln();
 			Rprintln(mqtt_Message);
 		}
 	}
 }
 
-String listNodeName; 
-bool check_NodeIsExist_in_LibsNodesJsObj(String trayID){
+String listNodeName;
+bool check_NodeIsExist_in_LibsNodesJsObj(String trayID) {
 
 }
 
@@ -511,7 +516,7 @@ void hardware_init() {
 	Dprintln(F("\r\n### E S P ###"));
 
 	RF.begin(9600);
-	RF.setTimeout(100);
+	RF.setTimeout(200);
 
 	pinMode(HPIN_LIGHT, OUTPUT);
 	pinMode(HPIN_FAN, OUTPUT);
@@ -620,8 +625,8 @@ void upload_relay_hub_status() {
 	jsDataRelayHub[DEST] = SERVER;
 	jsDataRelayHub[CMD_T] = int(UPDATE_DATA_GARDEN_HUB);
 	jsDataRelayHub[LIGHT] = STT_LIGHT == STT_ON ? ON : OFF;
-	jsDataRelayHub[FAN] = STT_FAN == STT_ON ? ON : ON;
-	jsDataRelayHub[SPRAY] = STT_SPRAY == STT_ON ? ON : ON;
+	jsDataRelayHub[FAN] = STT_FAN == STT_ON ? ON : OFF;
+	jsDataRelayHub[SPRAY] = STT_SPRAY == STT_ON ? ON : OFF;
 	jsDataRelayHub[COVER] = STT_COVER == STT_ON ? ON : (STT_COVER == STT_OFF ? OFF : MID);
 
 	String dataRelayHub;
@@ -679,39 +684,98 @@ void handle_serial() {
 	}
 }
 
-int button_read() {
+int map_value_to_button(int val) {
 	//	BT_LEFT    : 520	 || 452	 - 588
-	//	BT_BOTTON  : 656	 || 588	 - 760
+	//	BT_DOWN	   : 656	 || 588	 - 760
 	//	BT_RIGHT   : 864	 || 760	 - 1042
 	//	BT_UP	   : 1220	 || 1042 - 1570
 	//	BT_BACK	   : 1920	 || 1570 - 2657
 	//	BT_ENTER   : 4095	 || 2657 - 4095
-
-	int val = analogRead(HPIN_BUTTON);
-
 	if ((452 < val) && (val <= 588)) {
-		Dprintln(F("BT_LEFT"));
+		//Dprintln(F("BT_LEFT"));
 		return BT_LEFT;
 	}
 	if ((588 < val) && (val <= 760)) {
-		Dprintln(F("BT_BOTTON"));
-		return BT_BOTTON;
+		//Dprintln(F("BT_DOWN"));
+		return BT_DOWN;
 	}
 	if ((760 < val) && (val <= 1042)) {
-		Dprintln(F("BT_RIGHT"));
+		//Dprintln(F("BT_RIGHT"));
 		return BT_RIGHT;
 	}
 	if ((1042 < val) && (val <= 1570)) {
-		Dprintln(F("BT_UP"));
+		//Dprintln(F("BT_UP"));
 		return BT_UP;
 	}
 	if ((1570 < val) && (val <= 2657)) {
-		Dprintln(F("BT_BACK"));
+		//Dprintln(F("BT_BACK"));
 		return BT_BACK;
 	}
 	if ((2657 < val) && (val <= 4095)) {
-		Dprintln(F("BT_ENTER"));
+		//Dprintln(F("BT_ENTER"));
 		return BT_ENTER;
+	}
+	return BT_NOBUTTON;
+}
+int button_read() {
+	static int current_index_in_array_reading = 0;
+	static int last10reading[10];
+	static int last_button_return = BT_NOBUTTON;
+	static unsigned long t = millis();
+	if ((millis() - t) > 5) { //5ms đọc 1 lần
+		t = millis();
+		int val = analogRead(HPIN_BUTTON);
+		last10reading[current_index_in_array_reading++] = val;
+
+		if (current_index_in_array_reading >= 10) {
+			current_index_in_array_reading = 0;
+			unsigned long avg_10reading = 0;
+			int total0 = 0;
+			for (int i = 0; i < 10; i++) {
+				avg_10reading += last10reading[i];
+				if (last10reading[i] == 0) {
+					total0++;
+				}
+			}
+			if (total0 < 10) {
+				avg_10reading /= (10 - total0);
+			}
+			int avg_button = map_value_to_button(avg_10reading);
+			if ((total0 < 3) && (avg_button != BT_NOBUTTON) && (last_button_return == BT_NOBUTTON)) {
+				Dprintln("\r\n\r\n ### >>>\r\n ");
+				switch (avg_button)
+				{
+				case BT_LEFT:
+					Dprintln("BT_LEFT");
+					break;
+				case BT_DOWN:
+					Dprintln("BT_DOWN");
+					break;
+				case BT_RIGHT:
+					Dprintln("BT_RIGHT");
+					break;
+				case BT_UP:
+					Dprintln("BT_UP");
+					break;
+				case BT_BACK:
+					Dprintln("BT_BACK");
+					break;
+				case BT_ENTER:
+					Dprintln("BT_ENTER");
+					break;
+				default:
+					break;
+				}
+				for (int i = 0; i < 10; i++) {
+					Dprint(last10reading[i]);
+					Dprint(" ");
+					last10reading[i] = BT_NOBUTTON;
+				}
+				Dprintln();
+			}
+			last_button_return = avg_button;
+			return avg_button;
+		}
 	}
 	return BT_NOBUTTON;
 }
@@ -721,12 +785,6 @@ int button_read() {
 void setup()
 {
 	hardware_init();
-
-	while (true)
-	{
-		button_read();
-		delay(100);
-	}
 
 	wifi_init();
 
@@ -743,5 +801,6 @@ void loop()
 	mqtt_loop();
 	handle_rf_communicate();
 	handle_serial();
+	button_read();
 	delay(0);
 }
