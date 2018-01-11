@@ -6,7 +6,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _firmwareVersion ("0.1.5" " " __DATE__ " " __TIME__)
+#define _firmwareVersion ("0.1.6" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -691,7 +691,7 @@ int map_value_to_button(int val) {
 	//	BT_UP	   : 1220	 || 1042 - 1570
 	//	BT_BACK	   : 1920	 || 1570 - 2657
 	//	BT_ENTER   : 4095	 || 2657 - 4095
-	if ((452 < val) && (val <= 588)) {
+	if ((430 < val) && (val <= 588)) {
 		//Dprintln(F("BT_LEFT"));
 		return BT_LEFT;
 	}
@@ -718,32 +718,26 @@ int map_value_to_button(int val) {
 	return BT_NOBUTTON;
 }
 int button_read() {
-	static int current_index_in_array_reading = 0;
-	static int last10reading[10];
-	static int last_button_return = BT_NOBUTTON;
+	static const int total = 20;
+	static int pre[total];
 	static unsigned long t = millis();
-	if ((millis() - t) > 5) { //5ms đọc 1 lần
+	static const unsigned long debound_time = 5;
+	static int last_button = BT_NOBUTTON;
+	if ((millis() - t) > debound_time) {
 		t = millis();
-		int val = analogRead(HPIN_BUTTON);
-		last10reading[current_index_in_array_reading++] = val;
-
-		if (current_index_in_array_reading >= 10) {
-			current_index_in_array_reading = 0;
-			unsigned long avg_10reading = 0;
-			int total0 = 0;
-			for (int i = 0; i < 10; i++) {
-				avg_10reading += last10reading[i];
-				if (last10reading[i] == 0) {
-					total0++;
-				}
+		for (int i = total - 1; i > 0; i--) {
+			pre[i] = pre[i - 1];
+		}
+		pre[0] = map_value_to_button(analogRead(HPIN_BUTTON));
+		bool stable = true;
+		for (int i = 1; i < total; i++) {
+			if (pre[i] != pre[0]) {
+				stable = false;
 			}
-			if (total0 < 10) {
-				avg_10reading /= (10 - total0);
-			}
-			int avg_button = map_value_to_button(avg_10reading);
-			if ((total0 < 3) && (avg_button != BT_NOBUTTON) && (last_button_return == BT_NOBUTTON)) {
-				Dprintln("\r\n\r\n ### >>>\r\n ");
-				switch (avg_button)
+		}
+		if (stable && (last_button != pre[0])) {
+			if (last_button == BT_NOBUTTON) {
+				switch (pre[0])
 				{
 				case BT_LEFT:
 					Dprintln("BT_LEFT");
@@ -766,15 +760,14 @@ int button_read() {
 				default:
 					break;
 				}
-				for (int i = 0; i < 10; i++) {
-					Dprint(last10reading[i]);
+				for (int i = 0; i < total; i++) {
+					Dprint(pre[i]);
 					Dprint(" ");
-					last10reading[i] = BT_NOBUTTON;
 				}
 				Dprintln();
 			}
-			last_button_return = avg_button;
-			return avg_button;
+			last_button = pre[0];
+			return pre[0];
 		}
 	}
 	return BT_NOBUTTON;
