@@ -1,14 +1,26 @@
 ﻿#define IGNORE_THIS_FILE
 #ifndef IGNORE_THIS_FILE
 
-#define API_VERSION  "0.1.5"
+#define API_VERSION  "0.1.7"
 
 /*
+	v0.1.7
+		Quy định retain cho các COMMAND_TYPE
+	v0.1.6
+		Quy định cách đặt ID cho từng thiết bị
 	v0.1.5
 		Fix LIBRARIES
 	v0.1.4
 		Add Schedule ON, OFF
 */
+
+Cách đặt ID cho các thiết bị:
+	GARDEN_HUB		   : HXXXXX
+	GARDEN_NODE		   : NXXXXX
+	ENVIROMENT_MONITOR : EXXXXX
+	TANK_CONTROLER	   : TXXXXX
+
+Trong đó kí tự đầu tiên đại diện cho loại thiết bị, các kí tự còn lại mã xác định ID.
 
 /*
 --------------------------------------------------------------------------------------------------------
@@ -22,22 +34,22 @@ Thêm 3 trường MES_ID, SOURCE, DEST vào mỗi gói tín, sau này dễ dàng
 enum COMMAND_TYPE {
 	NO_COMMAND = 0, //phòng trường hợp ko có gì nó tự chuyển thành 0
 	
-	CONTROL_GARDEN_HUB,
-	CONTROL_GARDEN_NODE,
-	CONTROL_ENVIROMENT_MONITOR,
-	CONTROL_TANK_CONTROLER,
+	CONTROL_GARDEN_HUB,							//no retain
+	CONTROL_GARDEN_NODE,						//no retain
+	CONTROL_ENVIROMENT_MONITOR,					//no retain
+	CONTROL_TANK_CONTROLER,						//no retain
+											
+	GET_DATA_GARDEN_HUB,						//no retain
+	GET_DATA_GARDEN_NODE,						//no retain
+	GET_DATA_ENVIROMENT_MONITOR,				//no retain
+	GET_DATA_TANK_CONTROLER,					//no retain
 
-	GET_DATA_GARDEN_HUB,
-	GET_DATA_GARDEN_NODE,
-	GET_DATA_ENVIROMENT_MONITOR,
-	GET_DATA_TANK_CONTROLER,
+	UPDATE_DATA_GARDEN_HUB,						//with retain
+	UPDATE_DATA_GARDEN_NODE,					//with retain
+	UPDATE_DATA_ENVIROMENT_MONITOR,				//with retain
+	UPDATE_DATA_TANK_CONTROLER,					//with retain
 
-	UPDATE_DATA_GARDEN_HUB,
-	UPDATE_DATA_GARDEN_NODE,
-	UPDATE_DATA_ENVIROMENT_MONITOR,
-	UPDATE_DATA_TANK_CONTROLER,
-
-	LIBS_GARDEN_NODE
+	LIBS_GARDEN_NODE							//with retain
 };
 
 enum NODE_TYPE {
@@ -213,11 +225,11 @@ GET_DATA_ENVIROMENT_MONITOR
 		"MES_ID"	 : "",
 		"HUB_ID"	 : "",
 		"SOURCE"	 : "",
-		"DEST"		 : "",
+		"DEST"		 : "<ENVIROMENT_ID>",
 		"CMD_T"		 : GET_DATA_ENVIROMENT_MONITOR
 	}
 UPDATE_DATA_ENVIROMENT_MONITOR
-	Topic: "AGRISYSTEM/<HubID>"
+	Topic: "AGRISYSTEM/<HubID>/<ENVIROMENT_ID>"
 	{
 		"MES_ID"	 : "",
 		"HUB_ID"	 : "",

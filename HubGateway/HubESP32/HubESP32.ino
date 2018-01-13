@@ -6,7 +6,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _firmwareVersion ("0.1.6" " " __DATE__ " " __TIME__)
+#define _firmwareVersion ("0.1.7" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -99,6 +99,7 @@ String getID() {
 	char baseMacChr[6] = { 0 };
 	sprintf(baseMacChr, "%02X%02X%02X", baseMac[3], baseMac[4], baseMac[5]);
 	String id = String(baseMacChr);
+	id = "H" + id.substring(1);
 	id.trim();
 	return id;
 }
@@ -266,13 +267,14 @@ PubSubClient mqtt_client(mqtt_espClient);
 
 String timeStr;
 String mqtt_Message;
+String rf_Message;
 
 StaticJsonBuffer<10000> jsonBuffer;
 JsonObject& LibsNodesJsObj = jsonBuffer.parseObject("{\"TOTAL\": 2}");
 
 void parseJsonMainFromServer(String& json) {
 	StaticJsonBuffer<500> jsonBuffer;
-	JsonObject& commands = jsonBuffer.parseObject(mqtt_Message);
+	JsonObject& commands = jsonBuffer.parseObject(json);
 
 	if (!commands.success()) {
 		Dprintln(F("#ERR mqtt_Message invalid"));
@@ -305,20 +307,24 @@ void parseJsonMainFromServer(String& json) {
 			}
 		}
 		else if (jsDEST != SERVER) {
+			Rprintln(json);
 			Dprintln(F("#SEND to RF: "));
 			//ulong t = millis();
 			//Dprintln(millis() - t);
 			//t = millis();
-			Dprintln(mqtt_Message);
+			Dprintln(json);
 			Dflush();
-			//Dprintln(millis() - t);
-			//Rprintln();
-			Rprintln(mqtt_Message);
+			delay(10); //!important
 		}
 	}
 }
 
 String listNodeName;
+/*
+	NODE1
+	NODE2
+	NODE3
+*/
 bool check_NodeIsExist_in_LibsNodesJsObj(String trayID) {
 
 }
@@ -329,6 +335,11 @@ void parseJsonLibsFromServer(String& json) {
 
 	/* LibsNodesJsObj
 	{
+		"TOTAL_NODE":2,
+		"LIST_NODE":[
+		"NODE1",
+		"NODE2"
+		],
 		"NODE1":{
 			"TRAY_ID":"ABC",
 			"HUB_CODE":"AB10027",
@@ -473,6 +484,7 @@ void mqtt_reconnect() {  // Loop until we're reconnected
 void mqtt_init() {
 	//http.setReuse(true);
 	mqtt_Message.reserve(MQTT_MAX_PACKET_SIZE); //tao buffer khoang trong cho mqtt_Message
+	rf_Message.reserve(MQTT_MAX_PACKET_SIZE);
 	mqtt_client.setServer(mqtt_server, mqtt_port);
 	mqtt_client.setCallback(mqtt_callback);
 }
@@ -638,8 +650,6 @@ void handle_rf_communicate() {
 	if (RF.available() <= 0) {
 		return;
 	}
-	String rf_Message;
-
 	rf_Message = RF.readStringUntil('\n');
 	rf_Message.trim();
 	if (rf_Message.length() == 0) {
@@ -721,7 +731,7 @@ int button_read() {
 	static const int total = 20;
 	static int pre[total];
 	static unsigned long t = millis();
-	static const unsigned long debound_time = 5;
+	static const unsigned long debound_time = 3;
 	static int last_button = BT_NOBUTTON;
 	if ((millis() - t) > debound_time) {
 		t = millis();
