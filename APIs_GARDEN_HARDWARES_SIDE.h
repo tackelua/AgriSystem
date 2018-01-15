@@ -1,9 +1,11 @@
 ﻿#define IGNORE_THIS_FILE
 #ifndef IGNORE_THIS_FILE
 
-#define API_VERSION  "0.1.7"
+#define API_VERSION  "0.1.8"
 
 /*
+	v0.1.8
+		Thêm trường TIMESTAMP vào mỗi mói tin MQTT
 	v0.1.7
 		Quy định retain cho các COMMAND_TYPE
 	v0.1.6
@@ -23,9 +25,14 @@ Cách đặt ID cho các thiết bị:
 Trong đó kí tự đầu tiên đại diện cho loại thiết bị, các kí tự còn lại mã xác định ID.
 
 /*
---------------------------------------------------------------------------------------------------------
-Thêm 3 trường MES_ID, SOURCE, DEST vào mỗi gói tín, sau này dễ dàng trong việc mở rộng theo nhiều hướng.
---------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------
+Thêm 4 trường 
+	MES_ID	   : Message ID
+	SOURCE	   : ID nguồn gửi
+	DEST	   : ID đích gửi
+	TIMESTAMP  : seconds from epoch
+vào mỗi gói tín, sau này dễ dàng trong việc mở rộng theo nhiều hướng.
+-------------------------------------------------------------------------------------------------------------------
  */
 
 // Ý tưởng chung là nếu Hardware Side nhận được command CONTROL hoặc GET_DATA thì sẽ gửi trả lại message là UPDATE_DATA.
@@ -137,7 +144,8 @@ CONTROL_GARDEN_HUB
 		"MES_ID"	 : "<string>",
 		"HUB_ID"	 : "<string>",
 		"SOURCE"	 : "<string>",
-		"DEST"		 : "<string>",
+		"DEST"		 : "<string>", 
+		"TIMESTAMP"	 : "<long>",
 		"CMD_T"		 : CONTROL_GARDEN_HUB,
 		"LIGHT"		 : "ON",
 		"FAN"		 : "ON",
@@ -152,6 +160,7 @@ GET_DATA_GARDEN_HUB
 		"HUB_ID"	 : "",
 		"SOURCE"	 : "",
 		"DEST"		 : "",
+		"TIMESTAMP"  : "",
 		"CMD_T"		 : GET_DATA_GARDEN_HUB
 	}
 		
@@ -162,6 +171,7 @@ UPDATE_DATA_GARDEN_HUB
 		"HUB_ID"	 : "",
 		"SOURCE"	 : "",
 		"DEST"		 : "",
+		"TIMESTAMP"  : "",
 		"CMD_T"		 : UPDATE_DATA_GARDEN_HUB,
 		"LIGHT"		 : "ON",
 		"FAN"		 : "ON",
@@ -178,6 +188,7 @@ CONTROL_GARDEN_NODE
 		"HUB_ID"	 : "",
 		"SOURCE"	 : "",
 		"DEST"		 : "",
+		"TIMESTAMP"  : "",
 		"CMD_T"		 : CONTROL_GARDEN_NODE,
 		"MANURE"	 : "ON",
 		"SPRAY"		 : "ON",
@@ -191,6 +202,7 @@ GET_DATA_GARDEN_NODE
 		"HUB_ID"	 : "",
 		"SOURCE"	 : "",
 		"DEST"		 : "",
+		"TIMESTAMP"  : "",
 		"CMD_T"		 : GET_DATA_GARDEN_NODE
 	}
 
@@ -201,6 +213,7 @@ UPDATE_DATA_GARDEN_NODE
 		"HUB_ID"	 : "",
 		"SOURCE"	 : "",
 		"DEST"		 : "",
+		"TIMESTAMP"  : "",
 		"CMD_T"		 : UPDATE_DATA_GARDEN_NODE,
 		"MANURE"	 : "ON",
 		"SPRAY"		 : "ON",
@@ -225,7 +238,9 @@ GET_DATA_ENVIROMENT_MONITOR
 		"MES_ID"	 : "",
 		"HUB_ID"	 : "",
 		"SOURCE"	 : "",
+		"TIMESTAMP" : "",
 		"DEST"		 : "<ENVIROMENT_ID>",
+		"TIMESTAMP"  : "",
 		"CMD_T"		 : GET_DATA_ENVIROMENT_MONITOR
 	}
 UPDATE_DATA_ENVIROMENT_MONITOR
@@ -235,6 +250,7 @@ UPDATE_DATA_ENVIROMENT_MONITOR
 		"HUB_ID"	 : "",
 		"SOURCE"	 : "",
 		"DEST"		 : "",
+		"TIMESTAMP"  : "",
 		"CMD_T"		 : UPDATE_DATA_ENVIROMENT_MONITOR,
 		
 		"S_TEMP"	 : "<float>",
@@ -254,6 +270,7 @@ CONTROL_TANK_CONTROLER
 		"HUB_ID"	 : "<string>",
 		"SOURCE"	 : "<string>",
 		"DEST"		 : "<string>",
+		"TIMESTAMP" : "",
 		"CMD_T"		 : CONTROL_TANK_CONTROLER,
 		"WATER_IN"	 : "ON",
 		"WATER_OUT"	 : "OFF"
@@ -265,6 +282,7 @@ GET_DATA_TANK_CONTROLER
 		"HUB_ID"	 : "<string>",
 		"SOURCE"	 : "<string>",
 		"DEST"		 : "<string>",
+		"TIMESTAMP" : "",
 		"CMD_T"		 : GET_DATA_TANK_CONTROLER
 	}
 
@@ -275,6 +293,7 @@ UPDATE_DATA_TANK_CONTROLER
 		"HUB_ID"	 : "<string>",
 		"SOURCE"	 : "<string>",
 		"DEST"		 : "<string>",
+		"TIMESTAMP"  : "",
 		"CMD_T"		 : UPDATE_DATA_TANK_CONTROLER,
 		
 		"WATER_IN"	 : "ON",
@@ -292,26 +311,27 @@ UPDATE_DATA_TANK_CONTROLER
 - Thông tin về thư viện của từng TRAY sẽ được APP or SERVER publish lên topic "AGRISYSTEM/<HubID>/LIBS/<TrayID>" with retain
 Nội dung tùy 
    {
-	  "MES_ID"	 : "<string>",
-	  "HUB_ID": "<string>",
-	  "SOURCE" : "<string>",
-	  "DEST" : "<string>",
-	  "CMD_T" : LIBS_GARDEN_NODE,
+	  "MES_ID"		: "<string>",
+	  "HUB_ID"		: "<string>",
+	  "SOURCE"		: "<string>",
+	  "DEST"		: "<string>",
+	  "TIMESTAMP"	: "<long>",
+	  "CMD_T"		: LIBS_GARDEN_NODE,
 
-      "TRAY_NAME":"Cải", //bỏ dấu please
+      "TRAY_NAME"	: "Cải", //bỏ dấu please
       // "TRAY_IMAGE":"https://i.imgur.com/zLHjhzW.jpg",
       // "TRAY_CREATED_DATE":"2017-12-22T00:00:00",
       // "TRAY_HARVEST_STATUS":1,
       //"PLANT_ID":1,
-      "LIGHT_MIN":1,
-      "LIGHT_MAX":1,
-      "HUMI_MIN":1,
-      "HUMI_MAX":1,
-      "TEMP_MIN":1,
-      "TEMP_MAX":1,
-      "AUTO_STATUS":1,
+      "LIGHT_MIN"	: 1,
+      "LIGHT_MAX"	: 1,
+      "HUMI_MIN"	: 1,
+      "HUMI_MAX"	: 1,
+      "TEMP_MIN"	: 1,
+      "TEMP_MAX"	: 1,
+      "AUTO_STATUS"	: 1,
 	  "INTERVAL_UPDATE": int(second),
-	  "SCHELDULE" : "21:00:00_21:10:00, ..." //Giờ bật_tắt
+	  "SCHELDULE"	: "TimeStampStart_TimeStampStop, ..." //Giờ bật_tắt
    }
 #end region
 

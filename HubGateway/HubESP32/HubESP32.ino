@@ -1,4 +1,6 @@
-﻿#include <esp_system.h>
+﻿#include <TimeLib.h>
+#include <Time.h>
+#include <esp_system.h>
 #include <WiFiClient.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
@@ -270,7 +272,8 @@ String mqtt_Message;
 String rf_Message;
 
 StaticJsonBuffer<10000> jsonBuffer;
-JsonObject& LibsNodesJsObj = jsonBuffer.parseObject("{\"TOTAL\": 2}");
+JsonObject& ListGardenDevicesJs = jsonBuffer.parseObject("{}");
+JsonArray& ListGardenDevicesJsArray = ListGardenDevicesJs.createNestedArray("List");
 
 void parseJsonMainFromServer(String& json) {
 	StaticJsonBuffer<500> jsonBuffer;
@@ -319,51 +322,43 @@ void parseJsonMainFromServer(String& json) {
 	}
 }
 
-String listNodeName;
-/*
-	NODE1
-	NODE2
-	NODE3
-*/
-bool check_NodeIsExist_in_LibsNodesJsObj(String trayID) {
-
+bool check_NodeIsExist_in_ListGardenDevicesJs(String trayID) {
+	/*
+	{  
+	   "List":[  
+		  "Tray ID 1",
+		  "Tray ID 2",
+		  "Tray ID 3",
+		  "Tray ID 4",
+		  "Tray ID 5"
+	   ]
+	}
+	*/
 }
 
 void parseJsonLibsFromServer(String& json) {
 	//Phân tích json và lưu vào LibsNodes
 	//Gửi json đến Node
 
-	/* LibsNodesJsObj
+	/* ListGardenDevicesJs
 	{
-		"TOTAL_NODE":2,
-		"LIST_NODE":[
-		"NODE1",
-		"NODE2"
-		],
-		"NODE1":{
-			"TRAY_ID":"ABC",
-			"HUB_CODE":"AB10027",
-			"LIGHT_MIN":1,
-			"LIGHT_MAX":1,
-			"HUMI_MIN":1,
-			"HUMI_MAX":1,
-			"TEMP_MIN":1,
-			"TEMP_MAX":1,
-			"AUTO_STATUS":1,
-			"INTERVAL_UPDATE":10
-		},
-		"NODE2":{
-			"TRAY_ID":"ABC",
-			"HUB_CODE":"AB10027",
-			"LIGHT_MIN":1,
-			"LIGHT_MAX":1,
-			"HUMI_MIN":1,
-			"HUMI_MAX":1,
-			"TEMP_MIN":1,
-			"TEMP_MAX":1,
-			"AUTO_STATUS":1,
-			"INTERVAL_UPDATE":10
-		}
+		"MES_ID"		: "<string>",
+		"HUB_ID"		: "<string>",
+		"SOURCE"		: "<string>",
+		"DEST"		: "<string>",
+		"TIMESTAMP"	: "<long>",
+		"CMD_T"		: LIBS_GARDEN_NODE,
+
+		"TRAY_NAME"	: "Cải", //bỏ dấu please
+		"LIGHT_MIN"	: 1,
+		"LIGHT_MAX"	: 1,
+		"HUMI_MIN"	: 1,
+		"HUMI_MAX"	: 1,
+		"TEMP_MIN"	: 1,
+		"TEMP_MAX"	: 1,
+		"AUTO_STATUS"	: 1,
+		"INTERVAL_UPDATE": int(second),
+		"SCHELDULE"	: "TimeStampStart_TimeStampStop, ..." //Giờ bật_tắt
 	}
 	*/
 
@@ -386,21 +381,11 @@ void parseJsonLibsFromServer(String& json) {
 	int AUTOSTATUS = nodeLib["AUTO_STATUS"].as<int>();
 	int INTERVALUPDATE = nodeLib["INTERVAL_UPDATE"].as<int>();
 
-	JsonObject& TRAYDATA = LibsNodesJsObj.createNestedObject(TRAYID);
-	TRAYDATA["TRAY_ID"] = TRAYID;
-	TRAYDATA["HUB_CODE"] = HUBCODE;
-	TRAYDATA["TRAY_NAME"] = TRAYNAME;
-	TRAYDATA["LIGHT_MIN"] = LIGHTMIN;
-	TRAYDATA["LIGHT_MAX"] = LIGHTMAX;
-	TRAYDATA["HUMI_MIN"] = HUMIMIN;
-	TRAYDATA["HUMI_MAX"] = HUMIMAX;
-	TRAYDATA["TEMP_MIN"] = TEMPMIN;
-	TRAYDATA["TEMP_MAX"] = TEMPMAX;
-	TRAYDATA["AUTO_STATUS"] = AUTOSTATUS;
-	TRAYDATA["INTERVAL_UPDATE"] = INTERVALUPDATE;
+	JsonObject& TRAYDATA = ListGardenDevicesJs.createNestedObject(TRAYID); 
+	ListGardenDevicesJsArray.add("Tray ID 1");
 
 	Dprintln(F("\r\nLibsNodes"));
-	LibsNodesJsObj.prettyPrintTo(DEBUG);
+	ListGardenDevicesJs.prettyPrintTo(DEBUG);
 	Dprintln();
 
 	Rprintln(json);
