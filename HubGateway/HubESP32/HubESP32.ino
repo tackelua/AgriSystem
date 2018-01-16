@@ -8,11 +8,14 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _firmwareVersion ("0.1.7" " " __DATE__ " " __TIME__)
+#define _firmwareVersion ("0.1.8" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
 LiquidCrystal_I2C lcd(0x3f, 20, 4);
+
+#define DB_BAUDRATE	115200
+#define RF_BAUDRATE	9600
 
 #define DEBUG		Serial
 #define Dprint		DEBUG.print
@@ -324,8 +327,8 @@ void parseJsonMainFromServer(String& json) {
 
 bool check_NodeIsExist_in_ListGardenDevicesJs(String trayID) {
 	/*
-	{  
-	   "List":[  
+	{
+	   "List":[
 		  "Tray ID 1",
 		  "Tray ID 2",
 		  "Tray ID 3",
@@ -381,7 +384,7 @@ void parseJsonLibsFromServer(String& json) {
 	int AUTOSTATUS = nodeLib["AUTO_STATUS"].as<int>();
 	int INTERVALUPDATE = nodeLib["INTERVAL_UPDATE"].as<int>();
 
-	JsonObject& TRAYDATA = ListGardenDevicesJs.createNestedObject(TRAYID); 
+	JsonObject& TRAYDATA = ListGardenDevicesJs.createNestedObject(TRAYID);
 	ListGardenDevicesJsArray.add("Tray ID 1");
 
 	Dprintln(F("\r\nLibsNodes"));
@@ -448,11 +451,12 @@ void mqtt_reconnect() {  // Loop until we're reconnected
 	while (!mqtt_client.connected()) {
 		Dprint(F("Attempting MQTT connection..."));
 		//boolean connect(const char* id, const char* willTopic, uint8_t willQos, boolean willRetain, const char* willMessage);
-		String h_offline = HubID + " offline";
-		if (mqtt_client.connect(HubID.c_str(), mqtt_user, mqtt_password, MQTT_TOPIC_MAIN.c_str(), 0, true, h_offline.c_str())) {
+		String h_offline = "{\"HUB_ID\":\"" + HubID + "\",\"STATUS\":\"OFFLINE\"}";
+		String topic_HUBSTATUS = MQTT_TOPIC_MAIN + "/STATUS";
+		if (mqtt_client.connect(HubID.c_str(), mqtt_user, mqtt_password, topic_HUBSTATUS.c_str(), 0, true, h_offline.c_str())) {
 			Dprintln(F("connected"));
-			String h_online = HubID + " online";
-			mqtt_client.publish(MQTT_TOPIC_MAIN.c_str(), h_online.c_str(), true);
+			String h_online = "{\"HUB_ID\":\"" + HubID + "\",\"STATUS\":\"ONLINE\"}";
+			mqtt_client.publish(topic_HUBSTATUS.c_str(), h_online.c_str(), true);
 			mqtt_client.subscribe(MQTT_TOPIC_MAIN.c_str());
 			String libs = MQTT_TOPIC_MAIN + "/LIBS/#";
 			mqtt_client.subscribe(libs.c_str());
@@ -508,11 +512,11 @@ int STT_COVER = STT_OFF;
 
 void hardware_init() {
 	delay(10);
-	DEBUG.begin(115200);
+	DEBUG.begin(DB_BAUDRATE);
 	DEBUG.setTimeout(50);
 	Dprintln(F("\r\n### E S P ###"));
 
-	RF.begin(9600);
+	RF.begin(RF_BAUDRATE);
 	RF.setTimeout(200);
 
 	pinMode(HPIN_LIGHT, OUTPUT);
@@ -650,6 +654,15 @@ void handle_rf_communicate() {
 	if (!nodeData.success()) {
 		Dprintln(F("#ERR rf_Message invalid"));
 		//Dprintln(rf_Message);
+		static byte total_rf_fail = 0;
+		if (++total_rf_fail > 5) {
+			total_rf_fail = 0;
+			Dprintln(F("RESET RF SERIAL"));
+			RF.end();
+			delay(1);
+			RF.begin(RF_BAUDRATE);
+			RF.flush();
+		}
 		Dprintln();
 		return;
 	}

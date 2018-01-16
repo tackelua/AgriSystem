@@ -1,9 +1,11 @@
 ﻿#define IGNORE_THIS_FILE
 #ifndef IGNORE_THIS_FILE
 
-#define API_VERSION  "0.1.8"
+#define API_VERSION  "0.1.9"
 
 /*
+	v0.1.9
+		Quy định thông báo HUB STATUS
 	v0.1.8
 		Thêm trường TIMESTAMP vào mỗi mói tin MQTT
 	v0.1.7
@@ -335,6 +337,20 @@ Nội dung tùy
    }
 #end region
 
+#region HUB STATUS
+- Topic thông báo trạng thái của HUB "AGRISYSTEM/<HubID>/STATUS"
+  + Khi HUB kết nối đến MQTT BROKER
+	{
+		"HUB_ID" : "<HubID>",
+		"STATUS" : "ONLINE"
+	}
+  + Khi HUB mất kết nối đển MQTT BROKER, BROKER sẽ tự động publish gói tin LWT với nội dung:
+	{
+		"HUB_ID" : "<HubID>",
+		"STATUS" : "OFFLINE"
+	}
+Các gói tin gửi vào đây sẽ được RETAIN.
+#end region
 
 
 #endif
