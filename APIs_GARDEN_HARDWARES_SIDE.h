@@ -1,7 +1,7 @@
 ﻿#define IGNORE_THIS_FILE
 #ifndef IGNORE_THIS_FILE
 
-#define API_VERSION  "0.1.9"
+#define API_VERSION  "0.1.10"
 
 /*
 	v0.1.9
@@ -58,7 +58,8 @@ enum COMMAND_TYPE {
 	UPDATE_DATA_ENVIROMENT_MONITOR,				//with retain
 	UPDATE_DATA_TANK_CONTROLER,					//with retain
 
-	LIBS_GARDEN_NODE							//with retain
+	UPDATE_DATA_HUB_HARDWARE_STATUS,			//with retain
+	LIBS_GARDEN_NODE
 };
 
 enum NODE_TYPE {
@@ -311,6 +312,7 @@ UPDATE_DATA_TANK_CONTROLER
 #region LIBRARIES
 - HUB sẽ subscribe vào topic "AGRISYSTEM/<HubID>/LIBS/#"
 - Thông tin về thư viện của từng TRAY sẽ được APP or SERVER publish lên topic "AGRISYSTEM/<HubID>/LIBS/<TrayID>" with retain
+- HUB nhận được sẽ chuyển về NODE
 Nội dung tùy 
    {
 	  "MES_ID"		: "<string>",
@@ -333,7 +335,7 @@ Nội dung tùy
       "TEMP_MAX"	: 1,
       "AUTO_STATUS"	: 1,
 	  "INTERVAL_UPDATE": int(second),
-	  "SCHELDULE"	: "TimeStampStart_TimeStampStop, ..." //Giờ bật_tắt
+	  "SCHELDULE"	: "21:00:00_21:10:00, ..." //ThờiGian-bật_Số-phút-bật
    }
 #end region
 

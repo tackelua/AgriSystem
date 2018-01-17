@@ -8,14 +8,14 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _firmwareVersion ("0.1.8" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.9" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
 LiquidCrystal_I2C lcd(0x3f, 20, 4);
 
 #define DB_BAUDRATE	115200
-#define RF_BAUDRATE	9600
+#define RF_BAUDRATE	115200
 
 #define DEBUG		Serial
 #define Dprint		DEBUG.print
@@ -25,7 +25,7 @@ LiquidCrystal_I2C lcd(0x3f, 20, 4);
 
 #define RF			Serial2
 #define Rprint		RF.print
-#define Rprintln	RF.println
+#define Rprintln(x)	if(RF.available()<=0){RF.println(x);}
 #define Rprintf		RF.printf
 #define Rflush		RF.flush
 
@@ -54,6 +54,7 @@ enum BUTTON {
 #define HUB_ID		"HUB_ID"
 #define SOURCE		"SOURCE"
 #define DEST		"DEST"
+#define TIMESTAMP	"TIMESTAMP"
 #define CMD_T		"CMD_T"
 #define	SERVER		"SERVER"
 
@@ -88,6 +89,9 @@ enum COMMAND_TYPE {
 	UPDATE_DATA_GARDEN_NODE,
 	UPDATE_DATA_ENVIROMENT_MONITOR,
 	UPDATE_DATA_TANK_CONTROLER,
+
+	UPDATE_DATA_HUB_HARDWARE_STATUS,
+	LIBS_GARDEN_NODE
 };
 enum NODE_TYPE {
 	GARDEN_HUB = 0,
@@ -98,6 +102,7 @@ enum NODE_TYPE {
 
 
 String getID() {
+	return "H4C37C";
 	uint8_t baseMac[6];
 	// Get MAC address for WiFi station
 	esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
@@ -198,6 +203,7 @@ void lcd_showMainMenu() {
 
 #pragma region WiFi Init
 void wifi_init() {
+	Dprintln(F("\r\nConnecting to WiFi"));
 	WiFi.begin("IoT Wifi", "mic@dtu12345678()");
 	WiFi.waitForConnectResult();
 	while (1) {
@@ -500,6 +506,111 @@ bool mqtt_publish(String topic, String payload, bool retain) {
 #pragma endregion
 
 
+#pragma region HTTP
+String http_request(String host, uint16_t port = 80, String url = "/") {
+	Dprintln("\r\nGET " + host + ":" + String(port) + url);
+	WiFiClient client;
+	if (!client.connect(host.c_str(), port)) {
+		Dprintln("connection failed");
+		return "";
+	}
+	client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+		"Host: " + host + "\r\n" +
+		"Connection: close\r\n\r\n");
+	unsigned long timeout = millis();
+	while (client.available() == 0) {
+		if (millis() - timeout > 2000) {
+			Dprintln(">>> Client Timeout !");
+			client.stop();
+			return "";
+		}
+	}
+
+	// Read all the lines of the reply from server and print them to Serial
+	//while (client.available()) {
+	//	String line = client.readStringUntil('\r');
+	//	Dprint(line);
+	//}
+	//Dprintln();
+	//Dprintln();
+	String body;
+	if (client.available()) {
+		body = client.readString();
+		int pos_body_begin = body.indexOf("\r\n\r\n");
+		if (pos_body_begin > 0) {
+			body = body.substring(pos_body_begin + 4);
+		}
+	}
+	client.stop();
+	body.trim();
+	return body;
+}
+#pragma endregion
+
+#pragma region TASKS
+void updateTimeStamp(unsigned long interval = 0) {
+	static unsigned long t_pre_update = 0;
+	static bool isSync = false;
+	if (interval == 0) {
+		String strTimeStamp = http_request("mic.duytan.edu.vn", 88, "/api/GetUnixTime");
+		Dprintln(strTimeStamp);
+		DynamicJsonBuffer timestamp(500);
+		JsonObject& jsTimeStamp = timestamp.parseObject(strTimeStamp);
+		if (jsTimeStamp.success()) {
+			time_t ts = String(jsTimeStamp["UNIX_TIME"].asString()).toInt();
+			if (ts > 1000000000) {
+				t_pre_update = millis();
+				isSync = true;
+				setTime(ts);
+				Dprintln(F("Time Updated\r\n"));
+				return;
+			}
+		}
+	}
+	else {
+		if ((millis() - t_pre_update) > interval) {
+			updateTimeStamp();
+		}
+	}
+	if (!isSync) {
+		updateTimeStamp();
+	}
+}
+
+int wifi_quality(int32_t dBm) {
+	WiFi.RSSI();
+	if (dBm <= -100)
+		return 0;
+	else if (dBm >= -50)
+		return 100;
+	else
+		return int(2 * (dBm + 100));
+}
+void updateHubHardwareStatus(unsigned long interval = 5000) {
+	static unsigned long t = millis();
+	if ((millis() - t) > interval) {
+		t = millis();
+		DynamicJsonBuffer HubHardwareStatus(500);
+		JsonObject& jsHubHardwareStatus = HubHardwareStatus.createObject();
+		jsHubHardwareStatus[MES_ID] = String(millis());
+		jsHubHardwareStatus[HUB_ID] = HubID;
+		jsHubHardwareStatus[SOURCE] = HubID;
+		jsHubHardwareStatus[DEST] = SERVER;
+		jsHubHardwareStatus[TIMESTAMP] = String(now());
+		jsHubHardwareStatus[CMD_T] = UPDATE_DATA_HUB_HARDWARE_STATUS;
+		jsHubHardwareStatus["WIFI_SIGNAL"] = String(wifi_quality(WiFi.RSSI()));
+		jsHubHardwareStatus["TEMP_INTERNAL"] = String(temperatureRead(), 2);
+
+		String strHubHardwareStatus;
+		jsHubHardwareStatus.printTo(strHubHardwareStatus);
+
+		String dataRelayHub;
+		mqtt_publish(MQTT_TOPIC_MAIN, strHubHardwareStatus, true);
+	}
+}
+#pragma endregion
+
+
 #pragma region HARDWARE
 #define STT_OFF			0
 #define STT_ON			1
@@ -559,6 +670,7 @@ void hardware_init() {
 	MQTT_TOPIC_MAIN = "AGRISYSTEM/" + HubID;
 	Dprintf("\r\n\r\nHID=%s\r\n\r\n", HubID.c_str());
 	Dprintln(HubID);
+	Dprintln("Version: " + String(_FIRMWARE_VERSION));
 
 	lcd_init();
 
@@ -623,7 +735,8 @@ void upload_relay_hub_status() {
 	jsDataRelayHub[MES_ID] = String(micros());
 	jsDataRelayHub[HUB_ID] = HubID;
 	jsDataRelayHub[SOURCE] = HubID;
-	jsDataRelayHub[DEST] = SERVER;
+	jsDataRelayHub[DEST] = SERVER; 
+	jsDataRelayHub[TIMESTAMP] = String(now());
 	jsDataRelayHub[CMD_T] = int(UPDATE_DATA_GARDEN_HUB);
 	jsDataRelayHub[LIGHT] = STT_LIGHT == STT_ON ? ON : OFF;
 	jsDataRelayHub[FAN] = STT_FAN == STT_ON ? ON : OFF;
@@ -658,6 +771,11 @@ void handle_rf_communicate() {
 		if (++total_rf_fail > 5) {
 			total_rf_fail = 0;
 			Dprintln(F("RESET RF SERIAL"));
+			//RF.flush();
+			//RF.end();
+			//delay(10);
+			//RF.flush();
+			//RF.begin(RF_BAUDRATE);
 			RF.end();
 			delay(1);
 			RF.begin(RF_BAUDRATE);
@@ -670,6 +788,7 @@ void handle_rf_communicate() {
 	String _hubID = nodeData[HUB_ID].as<String>();
 	String _DEST = nodeData[DEST].as<String>();
 	String _SOURCE = nodeData[SOURCE].as<String>();
+	nodeData[TIMESTAMP] = String(now());
 	if (_hubID == HubID) {
 		String nodeDataString;
 		if (_DEST == HubID) {
@@ -791,7 +910,8 @@ void setup()
 
 	lcd_print("WiFi connected", LINE3, MIDDLE);
 	lcd_print(WiFi.localIP().toString(), LINE4, MIDDLE);
-
+	
+	updateTimeStamp();
 	mqtt_init();
 
 	lcd_showMainMenu();
@@ -799,6 +919,8 @@ void setup()
 
 void loop()
 {
+	updateHubHardwareStatus(5000); 
+	updateTimeStamp(60000);
 	mqtt_loop();
 	handle_rf_communicate();
 	handle_serial();
