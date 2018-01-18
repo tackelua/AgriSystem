@@ -1,4 +1,6 @@
-﻿#include <TimeLib.h>
+﻿#pragma region DECLARATION
+
+#include <TimeLib.h>
 #include <Time.h>
 #include <esp_system.h>
 #include <WiFiClient.h>
@@ -8,13 +10,13 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _FIRMWARE_VERSION ("0.1.9" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.10" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
 LiquidCrystal_I2C lcd(0x3f, 20, 4);
 
-#define DB_BAUDRATE	115200
+#define DB_BAUDRATE	921600
 #define RF_BAUDRATE	115200
 
 #define DEBUG		Serial
@@ -25,7 +27,7 @@ LiquidCrystal_I2C lcd(0x3f, 20, 4);
 
 #define RF			Serial2
 #define Rprint		RF.print
-#define Rprintln(x)	if(RF.available()<=0){RF.println(x);}
+#define Rprintln	RF.println
 #define Rprintf		RF.printf
 #define Rflush		RF.flush
 
@@ -100,6 +102,23 @@ enum NODE_TYPE {
 	TANK_CONTROLER
 };
 
+String HubID;
+String MQTT_TOPIC_MAIN;
+
+String mqtt_Message;
+String rf_Message;
+#pragma endregion
+
+
+#pragma region HARDWARE
+#define STT_OFF			0
+#define STT_ON			1
+#define STT_COVER_MID	2
+
+int STT_LIGHT = STT_OFF;
+int STT_FAN = STT_OFF;
+int STT_SPRAY = STT_OFF;
+int STT_COVER = STT_OFF;
 
 String getID() {
 	return "H4C37C";
@@ -113,11 +132,283 @@ String getID() {
 	id.trim();
 	return id;
 }
-String HubID;
-String MQTT_TOPIC_MAIN;
 
+void hardware_init() {
+	delay(10);
+	DEBUG.begin(DB_BAUDRATE);
+	DEBUG.setTimeout(50);
+	Dprintln(F("\r\n### E S P ###"));
 
-void control_relay_hub(int HPIN, String STT, bool publish = false);
+	RF.begin(RF_BAUDRATE);
+	RF.setTimeout(200);
+
+	pinMode(HPIN_LIGHT, OUTPUT);
+	pinMode(HPIN_FAN, OUTPUT);
+	pinMode(HPIN_SPRAY, OUTPUT);
+	pinMode(HPIN_COVER_OPEN, OUTPUT);
+	pinMode(HPIN_COVER_CLOSE, OUTPUT);
+	pinMode(HPIN_BUTTON, INPUT);
+	//Dprintln("LIGHT ON");  digitalWrite(HPIN_LIGHT, HIGH);							delay(500);
+	//Dprintln("LIGHT OFF"); digitalWrite(HPIN_LIGHT, LOW);							delay(500);
+	//																				delay(500);
+	//Dprintln("FAN ON");  digitalWrite(HPIN_FAN, HIGH);								delay(500);
+	//Dprintln("FAN OFF"); digitalWrite(HPIN_FAN, LOW);								delay(500);
+	//																				delay(500);
+	//Dprintln("SPRAY ON");  digitalWrite(HPIN_SPRAY, HIGH);							delay(500);
+	//Dprintln("SPRAY OFF"); digitalWrite(HPIN_SPRAY, LOW);							delay(500);
+	//																				delay(500);
+	//Dprintln("COVER_OPEN ON");  digitalWrite(HPIN_COVER_OPEN, HIGH);				delay(500);
+	//Dprintln("COVER_OPEN OFF"); digitalWrite(HPIN_COVER_OPEN, LOW);					delay(500);
+	//																				delay(500);
+	//Dprintln("COVER_CLOSE ON");  digitalWrite(HPIN_COVER_CLOSE, HIGH);				delay(500);
+	//Dprintln("COVER_CLOSE OFF"); digitalWrite(HPIN_COVER_CLOSE, LOW);				delay(500);
+	//Dprintln("LIGHT ON");  digitalWrite(HPIN_LIGHT, HIGH);							delay(500);
+	//Dprintln("LIGHT OFF"); digitalWrite(HPIN_LIGHT, LOW);							delay(500);
+	//																				delay(500);
+	//Dprintln("FAN ON");  digitalWrite(HPIN_FAN, HIGH);								delay(500);
+	//Dprintln("FAN OFF"); digitalWrite(HPIN_FAN, LOW);								delay(500);
+	//																				delay(500);
+	//Dprintln("SPRAY ON");  digitalWrite(HPIN_SPRAY, HIGH);							delay(500);
+	//Dprintln("SPRAY OFF"); digitalWrite(HPIN_SPRAY, LOW);							delay(500);
+	//																				delay(500);
+	//Dprintln("COVER_OPEN ON");  digitalWrite(HPIN_COVER_OPEN, HIGH);				delay(500);
+	//Dprintln("COVER_OPEN OFF"); digitalWrite(HPIN_COVER_OPEN, LOW);					delay(500);
+	//																				delay(500);
+	//Dprintln("COVER_CLOSE ON");  digitalWrite(HPIN_COVER_CLOSE, HIGH);				delay(500);
+	//Dprintln("COVER_CLOSE OFF"); digitalWrite(HPIN_COVER_CLOSE, LOW);				delay(500);
+
+	Dprintln();
+	HubID = getID();
+	MQTT_TOPIC_MAIN = "AGRISYSTEM/" + HubID;
+	Dprintf("\r\n\r\nHID=%s\r\n\r\n", HubID.c_str());
+	Dprintln(HubID);
+	Dprintln("Version: " + String(_FIRMWARE_VERSION));
+
+	lcd_init();
+
+}
+
+void control_relay_hub(int HPIN, String STT, bool publish = false) {
+	Dprintf("Turn pin %d %s\r\n", HPIN, STT == ON ? "on" : "off");
+
+	if (HPIN == HPIN_LIGHT) {
+		if (STT == ON) {
+			STT_LIGHT = STT_ON;
+			digitalWrite(HPIN, true);
+		}
+		else if (STT == OFF) {
+			STT_LIGHT = STT_OFF;
+			digitalWrite(HPIN, false);
+		}
+	}
+	else if (HPIN == HPIN_FAN) {
+		if (STT == ON) {
+			STT_FAN = STT_ON;
+			digitalWrite(HPIN, true);
+		}
+		else if (STT == OFF) {
+			STT_FAN = STT_OFF;
+			digitalWrite(HPIN, false);
+		}
+	}
+	else if (HPIN == HPIN_SPRAY) {
+		if (STT == ON) {
+			STT_SPRAY = STT_ON;
+			digitalWrite(HPIN, true);
+		}
+		else if (STT == OFF) {
+			STT_SPRAY = STT_OFF;
+			digitalWrite(HPIN, false);
+		}
+	}
+	else if (HPIN == HPIN_COVER) {
+		if (STT == ON) {
+			STT_COVER = STT_ON;
+			digitalWrite(HPIN_COVER_OPEN, true);
+			digitalWrite(HPIN_COVER_CLOSE, false);
+		}
+		else if (STT == OFF) {
+			STT_COVER = STT_OFF;
+			digitalWrite(HPIN_COVER_OPEN, false);
+			digitalWrite(HPIN_COVER_CLOSE, true);
+		}
+		else if (STT == MID) {
+			STT_COVER = STT_OFF;
+			digitalWrite(HPIN_COVER_OPEN, false);
+			digitalWrite(HPIN_COVER_CLOSE, false);
+		}
+	}
+}
+
+void upload_relay_hub_status() {
+	DynamicJsonBuffer jsBufferRelayHub(500);
+	JsonObject& jsDataRelayHub = jsBufferRelayHub.createObject();
+
+	jsDataRelayHub[MES_ID] = String(micros());
+	jsDataRelayHub[HUB_ID] = HubID;
+	jsDataRelayHub[SOURCE] = HubID;
+	jsDataRelayHub[DEST] = SERVER;
+	jsDataRelayHub[TIMESTAMP] = String(now());
+	jsDataRelayHub[CMD_T] = int(UPDATE_DATA_GARDEN_HUB);
+	jsDataRelayHub[LIGHT] = STT_LIGHT == STT_ON ? ON : OFF;
+	jsDataRelayHub[FAN] = STT_FAN == STT_ON ? ON : OFF;
+	jsDataRelayHub[SPRAY] = STT_SPRAY == STT_ON ? ON : OFF;
+	jsDataRelayHub[COVER] = STT_COVER == STT_ON ? ON : (STT_COVER == STT_OFF ? OFF : MID);
+
+	String dataRelayHub;
+	jsDataRelayHub.printTo(dataRelayHub);
+	mqtt_publish(MQTT_TOPIC_MAIN, dataRelayHub, true);
+}
+
+void handle_rf_communicate() {
+	if (RF.available() <= 0) {
+		return;
+	}
+	rf_Message = RF.readStringUntil('\n');
+	rf_Message.trim();
+	if (rf_Message.length() == 0) {
+		return;
+	}
+	Dprintln(F("\r\nRF >>> "));
+	Dprintln(rf_Message);
+	//Rprint(F("RF>> "));
+	//Rprintln(rf_Message);
+	DynamicJsonBuffer jsonBufferNodeData(500);
+	JsonObject& nodeData = jsonBufferNodeData.parseObject(rf_Message);
+
+	if (!nodeData.success()) {
+		Dprintln(F("#ERR rf_Message invalid"));
+		//Dprintln(rf_Message);
+		static byte total_rf_fail = 0;
+		if (++total_rf_fail > 5) {
+			total_rf_fail = 0;
+			Dprintln(F("RESET RF SERIAL"));
+			//RF.end();
+			//delay(1);
+			//RF.begin(RF_BAUDRATE);
+			//RF.flush();
+			ESP.deepSleep(100000);
+		}
+		Dprintln();
+		return;
+	}
+
+	String _hubID = nodeData[HUB_ID].as<String>();
+	String _DEST = nodeData[DEST].as<String>();
+	String _SOURCE = nodeData[SOURCE].as<String>();
+	nodeData[TIMESTAMP] = String(now());
+	if (_hubID == HubID) {
+		String nodeDataString;
+		if (_DEST == HubID) {
+			nodeData[DEST] = SERVER;
+			nodeData.printTo(nodeDataString);
+		}
+		else {
+			nodeDataString = rf_Message;
+		}
+		mqtt_publish(MQTT_TOPIC_MAIN + "/" + _SOURCE, nodeDataString, true);
+	}
+}
+
+void handle_serial() {
+	if (Serial.available()) {
+		String s = Serial.readString();
+		Dprintln(F("Serial >>> "));
+		Dprintln(s);
+		Rprintln(s);
+	}
+}
+
+int map_value_to_button(int val) {
+	//	BT_LEFT    : 520	 || 452	 - 588
+	//	BT_DOWN	   : 656	 || 588	 - 760
+	//	BT_RIGHT   : 864	 || 760	 - 1042
+	//	BT_UP	   : 1220	 || 1042 - 1570
+	//	BT_BACK	   : 1920	 || 1570 - 2657
+	//	BT_ENTER   : 4095	 || 2657 - 4095
+	if ((430 < val) && (val <= 588)) {
+		//Dprintln(F("BT_LEFT"));
+		return BT_LEFT;
+	}
+	if ((588 < val) && (val <= 760)) {
+		//Dprintln(F("BT_DOWN"));
+		return BT_DOWN;
+	}
+	if ((760 < val) && (val <= 1042)) {
+		//Dprintln(F("BT_RIGHT"));
+		return BT_RIGHT;
+	}
+	if ((1042 < val) && (val <= 1570)) {
+		//Dprintln(F("BT_UP"));
+		return BT_UP;
+	}
+	if ((1570 < val) && (val <= 2657)) {
+		//Dprintln(F("BT_BACK"));
+		return BT_BACK;
+	}
+	if ((2657 < val) && (val <= 4095)) {
+		//Dprintln(F("BT_ENTER"));
+		return BT_ENTER;
+	}
+	return BT_NOBUTTON;
+}
+int button_read() {
+	static const int total = 20;
+	static int pre[total];
+	static unsigned long t = millis();
+	static const unsigned long debound_time = 3;
+	static int last_button = BT_NOBUTTON;
+	if ((millis() - t) > debound_time) {
+		t = millis();
+		for (int i = total - 1; i > 0; i--) {
+			pre[i] = pre[i - 1];
+		}
+		pre[0] = map_value_to_button(analogRead(HPIN_BUTTON));
+		bool stable = true;
+		for (int i = 1; i < total; i++) {
+			if (pre[i] != pre[0]) {
+				stable = false;
+			}
+		}
+		if (stable && (last_button != pre[0])) {
+			if (last_button == BT_NOBUTTON) {
+				switch (pre[0])
+				{
+				case BT_LEFT:
+					Dprintln("BT_LEFT");
+					break;
+				case BT_DOWN:
+					Dprintln("BT_DOWN");
+					break;
+				case BT_RIGHT:
+					Dprintln("BT_RIGHT");
+					break;
+				case BT_UP:
+					Dprintln("BT_UP");
+					break;
+				case BT_BACK:
+					Dprintln("BT_BACK");
+					break;
+				case BT_ENTER:
+					Dprintln("BT_ENTER");
+					break;
+				default:
+					break;
+				}
+				for (int i = 0; i < total; i++) {
+					Dprint(pre[i]);
+					Dprint(" ");
+				}
+				Dprintln();
+			}
+			last_button = pre[0];
+			return pre[0];
+		}
+	}
+	return BT_NOBUTTON;
+}
+#pragma endregion
+
 
 //-------------------------------------------------------------------------
 //LCD
@@ -203,7 +494,10 @@ void lcd_showMainMenu() {
 
 #pragma region WiFi Init
 void wifi_init() {
-	Dprintln(F("\r\nConnecting to WiFi"));
+	Dprintln(F("\r\nConnecting to WiFi")); 
+	if (WiFi.isConnected()) {
+		return;
+	}
 	WiFi.begin("IoT Wifi", "mic@dtu12345678()");
 	WiFi.waitForConnectResult();
 	while (1) {
@@ -267,7 +561,6 @@ void wifi_init() {
 
 #pragma region MQTT
 
-#define asdf BUILTIN_LED
 const char* mqtt_server = "mic.duytan.edu.vn";
 const char* mqtt_user = "Mic@DTU2017";
 const char* mqtt_password = "Mic@DTU2017!@#";
@@ -275,10 +568,6 @@ const uint16_t mqtt_port = 1883;
 
 WiFiClient mqtt_espClient;
 PubSubClient mqtt_client(mqtt_espClient);
-
-String timeStr;
-String mqtt_Message;
-String rf_Message;
 
 StaticJsonBuffer<10000> jsonBuffer;
 JsonObject& ListGardenDevicesJs = jsonBuffer.parseObject("{}");
@@ -401,7 +690,8 @@ void parseJsonLibsFromServer(String& json) {
 }
 
 void mqtt_callback(char* topic, uint8_t* payload, unsigned int length) {
-	ulong t = millis();
+	//ulong t = millis();
+
 	//Dprint(F("\r\n#1 FREE RAM : "));
 	//Dprintln(ESP.getFreeHeap());
 	Dprintln(F("\r\nMQTT >>>"));
@@ -429,17 +719,8 @@ void mqtt_callback(char* topic, uint8_t* payload, unsigned int length) {
 
 	//================================================
 
-	if (topicStr == "DateTime")
-	{
-		//Dprintln(mqtt_Message);
-		//Date: Mon, 19 Jun 2017 13:41:44 GMT
-		timeStr = mqtt_Message.substring(23, 31);
-		Dprintln(timeStr);
-
-	}
-
 	//control SPRAY, light, fan
-	else if (topicStr == MQTT_TOPIC_MAIN)
+	if (topicStr == MQTT_TOPIC_MAIN)
 	{
 		parseJsonMainFromServer(mqtt_Message);
 	}
@@ -447,10 +728,10 @@ void mqtt_callback(char* topic, uint8_t* payload, unsigned int length) {
 		parseJsonLibsFromServer(mqtt_Message);
 	}
 
-	Dprint(F("#2 FREE RAM : "));
-	Dprintln(ESP.getFreeHeap());
-	t = millis() - t;
-	Dprintln("Time: " + String(t));
+	//Dprint(F("#2 FREE RAM : "));
+	//Dprintln(ESP.getFreeHeap());
+	//t = millis() - t;
+	//Dprintln("Time: " + String(t));
 }
 
 void mqtt_reconnect() {  // Loop until we're reconnected
@@ -611,296 +892,6 @@ void updateHubHardwareStatus(unsigned long interval = 5000) {
 #pragma endregion
 
 
-#pragma region HARDWARE
-#define STT_OFF			0
-#define STT_ON			1
-#define STT_COVER_MID	2
-
-int STT_LIGHT = STT_OFF;
-int STT_FAN = STT_OFF;
-int STT_SPRAY = STT_OFF;
-int STT_COVER = STT_OFF;
-
-void hardware_init() {
-	delay(10);
-	DEBUG.begin(DB_BAUDRATE);
-	DEBUG.setTimeout(50);
-	Dprintln(F("\r\n### E S P ###"));
-
-	RF.begin(RF_BAUDRATE);
-	RF.setTimeout(200);
-
-	pinMode(HPIN_LIGHT, OUTPUT);
-	pinMode(HPIN_FAN, OUTPUT);
-	pinMode(HPIN_SPRAY, OUTPUT);
-	pinMode(HPIN_COVER_OPEN, OUTPUT);
-	pinMode(HPIN_COVER_CLOSE, OUTPUT);
-	pinMode(HPIN_BUTTON, INPUT);
-	//Dprintln("LIGHT ON");  digitalWrite(HPIN_LIGHT, HIGH);							delay(500);
-	//Dprintln("LIGHT OFF"); digitalWrite(HPIN_LIGHT, LOW);							delay(500);
-	//																				delay(500);
-	//Dprintln("FAN ON");  digitalWrite(HPIN_FAN, HIGH);								delay(500);
-	//Dprintln("FAN OFF"); digitalWrite(HPIN_FAN, LOW);								delay(500);
-	//																				delay(500);
-	//Dprintln("SPRAY ON");  digitalWrite(HPIN_SPRAY, HIGH);							delay(500);
-	//Dprintln("SPRAY OFF"); digitalWrite(HPIN_SPRAY, LOW);							delay(500);
-	//																				delay(500);
-	//Dprintln("COVER_OPEN ON");  digitalWrite(HPIN_COVER_OPEN, HIGH);				delay(500);
-	//Dprintln("COVER_OPEN OFF"); digitalWrite(HPIN_COVER_OPEN, LOW);					delay(500);
-	//																				delay(500);
-	//Dprintln("COVER_CLOSE ON");  digitalWrite(HPIN_COVER_CLOSE, HIGH);				delay(500);
-	//Dprintln("COVER_CLOSE OFF"); digitalWrite(HPIN_COVER_CLOSE, LOW);				delay(500);
-	//Dprintln("LIGHT ON");  digitalWrite(HPIN_LIGHT, HIGH);							delay(500);
-	//Dprintln("LIGHT OFF"); digitalWrite(HPIN_LIGHT, LOW);							delay(500);
-	//																				delay(500);
-	//Dprintln("FAN ON");  digitalWrite(HPIN_FAN, HIGH);								delay(500);
-	//Dprintln("FAN OFF"); digitalWrite(HPIN_FAN, LOW);								delay(500);
-	//																				delay(500);
-	//Dprintln("SPRAY ON");  digitalWrite(HPIN_SPRAY, HIGH);							delay(500);
-	//Dprintln("SPRAY OFF"); digitalWrite(HPIN_SPRAY, LOW);							delay(500);
-	//																				delay(500);
-	//Dprintln("COVER_OPEN ON");  digitalWrite(HPIN_COVER_OPEN, HIGH);				delay(500);
-	//Dprintln("COVER_OPEN OFF"); digitalWrite(HPIN_COVER_OPEN, LOW);					delay(500);
-	//																				delay(500);
-	//Dprintln("COVER_CLOSE ON");  digitalWrite(HPIN_COVER_CLOSE, HIGH);				delay(500);
-	//Dprintln("COVER_CLOSE OFF"); digitalWrite(HPIN_COVER_CLOSE, LOW);				delay(500);
-
-	Dprintln();
-	HubID = getID();
-	MQTT_TOPIC_MAIN = "AGRISYSTEM/" + HubID;
-	Dprintf("\r\n\r\nHID=%s\r\n\r\n", HubID.c_str());
-	Dprintln(HubID);
-	Dprintln("Version: " + String(_FIRMWARE_VERSION));
-
-	lcd_init();
-
-}
-
-void control_relay_hub(int HPIN, String STT, bool publish) {
-	Dprintf("Turn pin %d %s\r\n", HPIN, STT == ON ? "on" : "off");
-
-	if (HPIN == HPIN_LIGHT) {
-		if (STT == ON) {
-			STT_LIGHT = STT_ON;
-			digitalWrite(HPIN, true);
-		}
-		else if (STT == OFF) {
-			STT_LIGHT = STT_OFF;
-			digitalWrite(HPIN, false);
-		}
-	}
-	else if (HPIN == HPIN_FAN) {
-		if (STT == ON) {
-			STT_FAN = STT_ON;
-			digitalWrite(HPIN, true);
-		}
-		else if (STT == OFF) {
-			STT_FAN = STT_OFF;
-			digitalWrite(HPIN, false);
-		}
-	}
-	else if (HPIN == HPIN_SPRAY) {
-		if (STT == ON) {
-			STT_SPRAY = STT_ON;
-			digitalWrite(HPIN, true);
-		}
-		else if (STT == OFF) {
-			STT_SPRAY = STT_OFF;
-			digitalWrite(HPIN, false);
-		}
-	}
-	else if (HPIN == HPIN_COVER) {
-		if (STT == ON) {
-			STT_COVER = STT_ON;
-			digitalWrite(HPIN_COVER_OPEN, true);
-			digitalWrite(HPIN_COVER_CLOSE, false);
-		}
-		else if (STT == OFF) {
-			STT_COVER = STT_OFF;
-			digitalWrite(HPIN_COVER_OPEN, false);
-			digitalWrite(HPIN_COVER_CLOSE, true);
-		}
-		else if (STT == MID) {
-			STT_COVER = STT_OFF;
-			digitalWrite(HPIN_COVER_OPEN, false);
-			digitalWrite(HPIN_COVER_CLOSE, false);
-		}
-	}
-}
-
-void upload_relay_hub_status() {
-	DynamicJsonBuffer jsBufferRelayHub(500);
-	JsonObject& jsDataRelayHub = jsBufferRelayHub.createObject();
-
-	jsDataRelayHub[MES_ID] = String(micros());
-	jsDataRelayHub[HUB_ID] = HubID;
-	jsDataRelayHub[SOURCE] = HubID;
-	jsDataRelayHub[DEST] = SERVER; 
-	jsDataRelayHub[TIMESTAMP] = String(now());
-	jsDataRelayHub[CMD_T] = int(UPDATE_DATA_GARDEN_HUB);
-	jsDataRelayHub[LIGHT] = STT_LIGHT == STT_ON ? ON : OFF;
-	jsDataRelayHub[FAN] = STT_FAN == STT_ON ? ON : OFF;
-	jsDataRelayHub[SPRAY] = STT_SPRAY == STT_ON ? ON : OFF;
-	jsDataRelayHub[COVER] = STT_COVER == STT_ON ? ON : (STT_COVER == STT_OFF ? OFF : MID);
-
-	String dataRelayHub;
-	jsDataRelayHub.printTo(dataRelayHub);
-	mqtt_publish(MQTT_TOPIC_MAIN, dataRelayHub, true);
-}
-
-void handle_rf_communicate() {
-	if (RF.available() <= 0) {
-		return;
-	}
-	rf_Message = RF.readStringUntil('\n');
-	rf_Message.trim();
-	if (rf_Message.length() == 0) {
-		return;
-	}
-	Dprintln(F("\r\nRF >>> "));
-	Dprintln(rf_Message);
-	//Rprint(F("RF>> "));
-	//Rprintln(rf_Message);
-	DynamicJsonBuffer jsonBufferNodeData(500);
-	JsonObject& nodeData = jsonBufferNodeData.parseObject(rf_Message);
-
-	if (!nodeData.success()) {
-		Dprintln(F("#ERR rf_Message invalid"));
-		//Dprintln(rf_Message);
-		static byte total_rf_fail = 0;
-		if (++total_rf_fail > 5) {
-			total_rf_fail = 0;
-			Dprintln(F("RESET RF SERIAL"));
-			//RF.flush();
-			//RF.end();
-			//delay(10);
-			//RF.flush();
-			//RF.begin(RF_BAUDRATE);
-			RF.end();
-			delay(1);
-			RF.begin(RF_BAUDRATE);
-			RF.flush();
-		}
-		Dprintln();
-		return;
-	}
-
-	String _hubID = nodeData[HUB_ID].as<String>();
-	String _DEST = nodeData[DEST].as<String>();
-	String _SOURCE = nodeData[SOURCE].as<String>();
-	nodeData[TIMESTAMP] = String(now());
-	if (_hubID == HubID) {
-		String nodeDataString;
-		if (_DEST == HubID) {
-			nodeData[DEST] = SERVER;
-			nodeData.printTo(nodeDataString);
-		}
-		else {
-			nodeDataString = rf_Message;
-		}
-		mqtt_publish(MQTT_TOPIC_MAIN + "/" + _SOURCE, nodeDataString, true);
-	}
-}
-
-void handle_serial() {
-	if (Serial.available()) {
-		String s = Serial.readString();
-		Dprintln(F("Serial >>> "));
-		Dprintln(s);
-		Rprintln(s);
-	}
-}
-
-int map_value_to_button(int val) {
-	//	BT_LEFT    : 520	 || 452	 - 588
-	//	BT_DOWN	   : 656	 || 588	 - 760
-	//	BT_RIGHT   : 864	 || 760	 - 1042
-	//	BT_UP	   : 1220	 || 1042 - 1570
-	//	BT_BACK	   : 1920	 || 1570 - 2657
-	//	BT_ENTER   : 4095	 || 2657 - 4095
-	if ((430 < val) && (val <= 588)) {
-		//Dprintln(F("BT_LEFT"));
-		return BT_LEFT;
-	}
-	if ((588 < val) && (val <= 760)) {
-		//Dprintln(F("BT_DOWN"));
-		return BT_DOWN;
-	}
-	if ((760 < val) && (val <= 1042)) {
-		//Dprintln(F("BT_RIGHT"));
-		return BT_RIGHT;
-	}
-	if ((1042 < val) && (val <= 1570)) {
-		//Dprintln(F("BT_UP"));
-		return BT_UP;
-	}
-	if ((1570 < val) && (val <= 2657)) {
-		//Dprintln(F("BT_BACK"));
-		return BT_BACK;
-	}
-	if ((2657 < val) && (val <= 4095)) {
-		//Dprintln(F("BT_ENTER"));
-		return BT_ENTER;
-	}
-	return BT_NOBUTTON;
-}
-int button_read() {
-	static const int total = 20;
-	static int pre[total];
-	static unsigned long t = millis();
-	static const unsigned long debound_time = 3;
-	static int last_button = BT_NOBUTTON;
-	if ((millis() - t) > debound_time) {
-		t = millis();
-		for (int i = total - 1; i > 0; i--) {
-			pre[i] = pre[i - 1];
-		}
-		pre[0] = map_value_to_button(analogRead(HPIN_BUTTON));
-		bool stable = true;
-		for (int i = 1; i < total; i++) {
-			if (pre[i] != pre[0]) {
-				stable = false;
-			}
-		}
-		if (stable && (last_button != pre[0])) {
-			if (last_button == BT_NOBUTTON) {
-				switch (pre[0])
-				{
-				case BT_LEFT:
-					Dprintln("BT_LEFT");
-					break;
-				case BT_DOWN:
-					Dprintln("BT_DOWN");
-					break;
-				case BT_RIGHT:
-					Dprintln("BT_RIGHT");
-					break;
-				case BT_UP:
-					Dprintln("BT_UP");
-					break;
-				case BT_BACK:
-					Dprintln("BT_BACK");
-					break;
-				case BT_ENTER:
-					Dprintln("BT_ENTER");
-					break;
-				default:
-					break;
-				}
-				for (int i = 0; i < total; i++) {
-					Dprint(pre[i]);
-					Dprint(" ");
-				}
-				Dprintln();
-			}
-			last_button = pre[0];
-			return pre[0];
-		}
-	}
-	return BT_NOBUTTON;
-}
-#pragma endregion
-
 
 void setup()
 {
@@ -910,7 +901,7 @@ void setup()
 
 	lcd_print("WiFi connected", LINE3, MIDDLE);
 	lcd_print(WiFi.localIP().toString(), LINE4, MIDDLE);
-	
+
 	updateTimeStamp();
 	mqtt_init();
 
@@ -919,7 +910,7 @@ void setup()
 
 void loop()
 {
-	updateHubHardwareStatus(5000); 
+	updateHubHardwareStatus(5000);
 	updateTimeStamp(60000);
 	mqtt_loop();
 	handle_rf_communicate();

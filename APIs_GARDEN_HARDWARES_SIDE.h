@@ -1,7 +1,7 @@
 ﻿#define IGNORE_THIS_FILE
 #ifndef IGNORE_THIS_FILE
 
-#define API_VERSION  "0.1.10"
+#define API_VERSION  "0.1.11"
 
 /*
 	v0.1.9
@@ -59,6 +59,7 @@ enum COMMAND_TYPE {
 	UPDATE_DATA_TANK_CONTROLER,					//with retain
 
 	UPDATE_DATA_HUB_HARDWARE_STATUS,			//with retain
+	UPDATE_ACTION_LOGS,
 	LIBS_GARDEN_NODE
 };
 
@@ -142,7 +143,7 @@ enum NODE_TYPE {
 
 #region GARDEN_HUB
 CONTROL_GARDEN_HUB
-	Topic: "AGRISYSTEM/<HubID>"
+	Topic: "AGRISYSTEM/<HubID>/REQUEST"
 	{
 		"MES_ID"	 : "<string>",
 		"HUB_ID"	 : "<string>",
@@ -157,7 +158,7 @@ CONTROL_GARDEN_HUB
 	}
 		
 GET_DATA_GARDEN_HUB
-	Topic: "AGRISYSTEM/<HubID>"
+	Topic: "AGRISYSTEM/<HubID>/REQUEST"
 	{
 		"MES_ID"	 : "",
 		"HUB_ID"	 : "",
@@ -168,7 +169,7 @@ GET_DATA_GARDEN_HUB
 	}
 		
 UPDATE_DATA_GARDEN_HUB
-	Topic: "AGRISYSTEM/<HubID>"
+	Topic: "AGRISYSTEM/<HubID>/RESPONSE"
 	{
 		"MES_ID"	 : "",
 		"HUB_ID"	 : "",
@@ -185,7 +186,7 @@ UPDATE_DATA_GARDEN_HUB
 
 #region GARDEN_NODE
 CONTROL_GARDEN_NODE
-	Topic: "AGRISYSTEM/<HubID>"
+	Topic: "AGRISYSTEM/<HubID>/REQUEST/<NodeID>"
 	{
 		"MES_ID"	 : "",
 		"HUB_ID"	 : "",
@@ -199,7 +200,7 @@ CONTROL_GARDEN_NODE
 		"LED_MOSFET" : "PC45"
 	}
 GET_DATA_GARDEN_NODE
-	Topic: "AGRISYSTEM/<HubID>"
+	Topic: "AGRISYSTEM/<HubID>/REQUEST/<NodeID>"
 	{
 		"MES_ID"	 : "",
 		"HUB_ID"	 : "",
@@ -210,7 +211,7 @@ GET_DATA_GARDEN_NODE
 	}
 
 UPDATE_DATA_GARDEN_NODE
-	Topic: "AGRISYSTEM/<HubID>/<NodeID>"
+	Topic: "AGRISYSTEM/<HubID>/RESPONSE/<NodeID>"
 	{
 		"MES_ID"	 : "",
 		"HUB_ID"	 : "",
@@ -236,7 +237,7 @@ CONTROL_ENVIROMENT_MONITOR
 	none
 	
 GET_DATA_ENVIROMENT_MONITOR
-	Topic: "AGRISYSTEM/<HubID>"
+Topic: "AGRISYSTEM/<HubID>/REQUEST/<ENVIROMENT_ID>"
 	{
 		"MES_ID"	 : "",
 		"HUB_ID"	 : "",
@@ -247,7 +248,7 @@ GET_DATA_ENVIROMENT_MONITOR
 		"CMD_T"		 : GET_DATA_ENVIROMENT_MONITOR
 	}
 UPDATE_DATA_ENVIROMENT_MONITOR
-	Topic: "AGRISYSTEM/<HubID>/<ENVIROMENT_ID>"
+	Topic: "AGRISYSTEM/<HubID>/RESPONSE/<ENVIROMENT_ID>"
 	{
 		"MES_ID"	 : "",
 		"HUB_ID"	 : "",
@@ -267,7 +268,7 @@ UPDATE_DATA_ENVIROMENT_MONITOR
 
 #region CONTROL_TANK_CONTROLER
 CONTROL_TANK_CONTROLER
-	Topic: "AGRISYSTEM/<HubID>"
+	Topic: "AGRISYSTEM/<HubID>/REQUEST/<TANK_ID>"
 	{
 		"MES_ID"	 : "<string>",
 		"HUB_ID"	 : "<string>",
@@ -279,7 +280,7 @@ CONTROL_TANK_CONTROLER
 		"WATER_OUT"	 : "OFF"
 	}
 GET_DATA_TANK_CONTROLER
-	Topic: "AGRISYSTEM/<HubID>"
+	Topic: "AGRISYSTEM/<HubID>/REQUEST/<TANK_ID>"
 	{
 		"MES_ID"	 : "<string>",
 		"HUB_ID"	 : "<string>",
@@ -290,7 +291,7 @@ GET_DATA_TANK_CONTROLER
 	}
 
 UPDATE_DATA_TANK_CONTROLER
-	Topic: "AGRISYSTEM/<HubID>/<TankControlerID>"
+	Topic: "AGRISYSTEM/<HubID>/RESPONSE/<TANK_ID>"
 	{
 		"MES_ID"	 : "<string>",
 		"HUB_ID"	 : "<string>",
@@ -354,5 +355,18 @@ Nội dung tùy
 Các gói tin gửi vào đây sẽ được RETAIN.
 #end region
 
+#region ACTION LOGS
+Topic: "AGRISYSTEM/<HubID>/LOGS"
+	{
+		"HUB_ID"		: "<HubID>",
+		"SOURCE"		: "<DeviceID>",
+		"DEST"			: "SERVER",
+		"TIMESTAMP"		: "155555555555555",
+		"CMD_T"			: UPDATE_ACTION_LOGS,
+		"ACTION_NAME"	: "PUMP ON",
+		"ACTION_FROM"	: "HIC0001",
+		"ACTION_TO"		: "N13123"
+	}
+#end region
 
 #endif
