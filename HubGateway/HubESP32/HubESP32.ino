@@ -10,7 +10,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _FIRMWARE_VERSION ("0.1.10" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.11" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -50,7 +50,8 @@ enum BUTTON {
 	BT_ENTER	//red
 };
 
-
+#define REQUEST		"REQUEST"
+#define RESPONSE	"RESPONSE"
 #define CMD_T		"CMD_T"
 #define MES_ID		"MES_ID"
 #define HUB_ID		"HUB_ID"
@@ -257,7 +258,7 @@ void upload_relay_hub_status() {
 
 	String dataRelayHub;
 	jsDataRelayHub.printTo(dataRelayHub);
-	mqtt_publish(MQTT_TOPIC_MAIN, dataRelayHub, true);
+	mqtt_publish(MQTT_TOPIC_MAIN + "/" RESPONSE, dataRelayHub, true);
 }
 
 void handle_rf_communicate() {
@@ -269,7 +270,7 @@ void handle_rf_communicate() {
 	if (rf_Message.length() == 0) {
 		return;
 	}
-	Dprintln(F("\r\nRF >>> "));
+	Dprintf("\r\nRF >>> [%d]\r\n", rf_Message.length());
 	Dprintln(rf_Message);
 	//Rprint(F("RF>> "));
 	//Rprintln(rf_Message);
@@ -306,7 +307,7 @@ void handle_rf_communicate() {
 		else {
 			nodeDataString = rf_Message;
 		}
-		mqtt_publish(MQTT_TOPIC_MAIN + "/" + _SOURCE, nodeDataString, true);
+		mqtt_publish(MQTT_TOPIC_MAIN + "/" RESPONSE "/" + _SOURCE, nodeDataString, true);
 	}
 }
 
@@ -364,13 +365,13 @@ int button_read() {
 			pre[i] = pre[i - 1];
 		}
 		pre[0] = map_value_to_button(analogRead(HPIN_BUTTON));
-		bool stable = true;
+		int err = 0;
 		for (int i = 1; i < total; i++) {
 			if (pre[i] != pre[0]) {
-				stable = false;
+				err++;
 			}
 		}
-		if (stable && (last_button != pre[0])) {
+		if ((err == 0) && (last_button != pre[0])) {
 			if (last_button == BT_NOBUTTON) {
 				switch (pre[0])
 				{
@@ -609,7 +610,7 @@ void parseJsonMainFromServer(String& json) {
 		}
 		else if (jsDEST != SERVER) {
 			Rprintln(json);
-			Dprintln(F("#SEND to RF: "));
+			Dprintf("RF <<< [%d]\r\n", json.length());
 			//ulong t = millis();
 			//Dprintln(millis() - t);
 			//t = millis();
@@ -694,15 +695,15 @@ void mqtt_callback(char* topic, uint8_t* payload, unsigned int length) {
 
 	//Dprint(F("\r\n#1 FREE RAM : "));
 	//Dprintln(ESP.getFreeHeap());
-	Dprintln(F("\r\nMQTT >>>"));
 
 	String topicStr = topic;
+	Dprintf("\r\nMQTT >>> %s [%d]\r\n", topicStr.c_str(), length);
 	//Dprintln(topicStr);
-	Dprint(F("Message arrived: "));
-	Dprint(topicStr);
-	Dprint(F("["));
-	Dprint(length);
-	Dprintln(F("]"));
+	//Dprint(F("Message arrived: "));
+	//Dprint(topicStr);
+	//Dprint(F("["));
+	//Dprint(length);
+	//Dprintln(F("]"));
 
 	mqtt_Message = "";
 	digitalWrite(LED_STATUS, LOW);
@@ -720,7 +721,7 @@ void mqtt_callback(char* topic, uint8_t* payload, unsigned int length) {
 	//================================================
 
 	//control SPRAY, light, fan
-	if (topicStr == MQTT_TOPIC_MAIN)
+	if (topicStr.startsWith(MQTT_TOPIC_MAIN + "/" REQUEST))
 	{
 		parseJsonMainFromServer(mqtt_Message);
 	}
@@ -744,7 +745,7 @@ void mqtt_reconnect() {  // Loop until we're reconnected
 			Dprintln(F("connected"));
 			String h_online = "{\"HUB_ID\":\"" + HubID + "\",\"STATUS\":\"ONLINE\"}";
 			mqtt_client.publish(topic_HUBSTATUS.c_str(), h_online.c_str(), true);
-			mqtt_client.subscribe(MQTT_TOPIC_MAIN.c_str());
+			mqtt_client.subscribe((MQTT_TOPIC_MAIN + "/" REQUEST "/#").c_str());
 			String libs = MQTT_TOPIC_MAIN + "/LIBS/#";
 			mqtt_client.subscribe(libs.c_str());
 		}
@@ -774,10 +775,10 @@ void mqtt_loop() {
 }
 
 bool mqtt_publish(String topic, String payload, bool retain) {
-	Dprint(F("\r\nMQTT publish to topic: "));
-	Dprintln(topic);
+	Dprintf("\r\nMQTT <<< %s [%d]\r\n", topic.c_str(), payload.length());
+	//Dprintln(topic);
 	Dprintln(payload);
-	Dprintln();
+	//Dprintln();
 
 	digitalWrite(LED_STATUS, LOW);
 	bool ret = mqtt_client.publish(topic.c_str(), payload.c_str(), retain);
@@ -878,7 +879,7 @@ void updateHubHardwareStatus(unsigned long interval = 5000) {
 		jsHubHardwareStatus[SOURCE] = HubID;
 		jsHubHardwareStatus[DEST] = SERVER;
 		jsHubHardwareStatus[TIMESTAMP] = String(now());
-		jsHubHardwareStatus[CMD_T] = UPDATE_DATA_HUB_HARDWARE_STATUS;
+		jsHubHardwareStatus[CMD_T] = (int)UPDATE_DATA_HUB_HARDWARE_STATUS;
 		jsHubHardwareStatus["WIFI_SIGNAL"] = String(wifi_quality(WiFi.RSSI()));
 		jsHubHardwareStatus["TEMP_INTERNAL"] = String(temperatureRead(), 2);
 
@@ -886,7 +887,7 @@ void updateHubHardwareStatus(unsigned long interval = 5000) {
 		jsHubHardwareStatus.printTo(strHubHardwareStatus);
 
 		String dataRelayHub;
-		mqtt_publish(MQTT_TOPIC_MAIN, strHubHardwareStatus, true);
+		mqtt_publish(MQTT_TOPIC_MAIN + "/" RESPONSE, strHubHardwareStatus, true);
 	}
 }
 #pragma endregion
