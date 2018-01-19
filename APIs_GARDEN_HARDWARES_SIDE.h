@@ -18,7 +18,7 @@
 		Add Schedule ON, OFF
 */
 
-Cách đặt ID cho các thiết bị:
+Cách đặt ID cho các thiết bị: tất cả kí tự đề là chữ HOA
 	GARDEN_HUB		   : HXXXXX
 	GARDEN_NODE		   : NXXXXX
 	ENVIROMENT_MONITOR : EXXXXX
@@ -358,6 +358,7 @@ Các gói tin gửi vào đây sẽ được RETAIN.
 #region ACTION LOGS
 Topic: "AGRISYSTEM/<HubID>/LOGS"
 	{
+		"MES_ID"		: "",
 		"HUB_ID"		: "<HubID>",
 		"SOURCE"		: "<DeviceID>",
 		"DEST"			: "SERVER",

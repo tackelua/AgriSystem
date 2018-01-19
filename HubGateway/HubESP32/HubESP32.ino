@@ -10,7 +10,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _FIRMWARE_VERSION ("0.1.11" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.12" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -94,6 +94,7 @@ enum COMMAND_TYPE {
 	UPDATE_DATA_TANK_CONTROLER,
 
 	UPDATE_DATA_HUB_HARDWARE_STATUS,
+	UPDATE_ACTION_LOGS,
 	LIBS_GARDEN_NODE
 };
 enum NODE_TYPE {
@@ -132,6 +133,10 @@ String getID() {
 	id = "H" + id.substring(1);
 	id.trim();
 	return id;
+}
+
+String getTimeString() {
+	return (hour() < 10 ? "0" + String(hour()) : String(hour())) + ":" + (minute() < 10 ? "0" + String(minute()) : String(minute())) + ":" + (second() < 10 ? "0" + String(second()) : String(second()));
 }
 
 void hardware_init() {
@@ -189,58 +194,6 @@ void hardware_init() {
 
 }
 
-void control_relay_hub(int HPIN, String STT, bool publish = false) {
-	Dprintf("Turn pin %d %s\r\n", HPIN, STT == ON ? "on" : "off");
-
-	if (HPIN == HPIN_LIGHT) {
-		if (STT == ON) {
-			STT_LIGHT = STT_ON;
-			digitalWrite(HPIN, true);
-		}
-		else if (STT == OFF) {
-			STT_LIGHT = STT_OFF;
-			digitalWrite(HPIN, false);
-		}
-	}
-	else if (HPIN == HPIN_FAN) {
-		if (STT == ON) {
-			STT_FAN = STT_ON;
-			digitalWrite(HPIN, true);
-		}
-		else if (STT == OFF) {
-			STT_FAN = STT_OFF;
-			digitalWrite(HPIN, false);
-		}
-	}
-	else if (HPIN == HPIN_SPRAY) {
-		if (STT == ON) {
-			STT_SPRAY = STT_ON;
-			digitalWrite(HPIN, true);
-		}
-		else if (STT == OFF) {
-			STT_SPRAY = STT_OFF;
-			digitalWrite(HPIN, false);
-		}
-	}
-	else if (HPIN == HPIN_COVER) {
-		if (STT == ON) {
-			STT_COVER = STT_ON;
-			digitalWrite(HPIN_COVER_OPEN, true);
-			digitalWrite(HPIN_COVER_CLOSE, false);
-		}
-		else if (STT == OFF) {
-			STT_COVER = STT_OFF;
-			digitalWrite(HPIN_COVER_OPEN, false);
-			digitalWrite(HPIN_COVER_CLOSE, true);
-		}
-		else if (STT == MID) {
-			STT_COVER = STT_OFF;
-			digitalWrite(HPIN_COVER_OPEN, false);
-			digitalWrite(HPIN_COVER_CLOSE, false);
-		}
-	}
-}
-
 void upload_relay_hub_status() {
 	DynamicJsonBuffer jsBufferRelayHub(500);
 	JsonObject& jsDataRelayHub = jsBufferRelayHub.createObject();
@@ -259,6 +212,85 @@ void upload_relay_hub_status() {
 	String dataRelayHub;
 	jsDataRelayHub.printTo(dataRelayHub);
 	mqtt_publish(MQTT_TOPIC_MAIN + "/" RESPONSE, dataRelayHub, true);
+}
+void upload_relay_changelogs(String action_name, bool isAppControl = true) {
+	DynamicJsonBuffer jsBufferRelayChangelog(500);
+	JsonObject& jsRelayChangelog = jsBufferRelayChangelog.createObject();
+
+	jsRelayChangelog[MES_ID] = String(micros());
+	jsRelayChangelog[HUB_ID] = HubID;
+	jsRelayChangelog[SOURCE] = HubID;
+	jsRelayChangelog[DEST] = SERVER;
+	jsRelayChangelog[TIMESTAMP] = String(now());
+	jsRelayChangelog[CMD_T] = int(UPDATE_ACTION_LOGS);
+	jsRelayChangelog["ACTION_NAME"] = action_name;
+	jsRelayChangelog["ACTION_FROM"] = isAppControl ? "APP" : HubID;
+	jsRelayChangelog["ACTION_TO"] = HubID;
+
+	String dataRelayChangelog;
+	jsRelayChangelog.printTo(dataRelayChangelog);
+	mqtt_publish(MQTT_TOPIC_MAIN + "/LOGS", dataRelayChangelog, true);
+}
+
+void control_relay_hub(int HPIN, String STT, bool publish = false) {
+	Dprintf("Turn pin %d %s\r\n", HPIN, STT == ON ? "on" : "off");
+
+	if (HPIN == HPIN_LIGHT) {
+		if (STT == ON) {
+			STT_LIGHT = STT_ON;
+			digitalWrite(HPIN, true);
+			upload_relay_changelogs("LIGHT ON");
+		}
+		else if (STT == OFF) {
+			STT_LIGHT = STT_OFF;
+			digitalWrite(HPIN, false);
+			upload_relay_changelogs("LIGHT OFF");
+		}
+	}
+	else if (HPIN == HPIN_FAN) {
+		if (STT == ON) {
+			STT_FAN = STT_ON;
+			digitalWrite(HPIN, true);
+			upload_relay_changelogs("FAN ON");
+		}
+		else if (STT == OFF) {
+			STT_FAN = STT_OFF;
+			digitalWrite(HPIN, false);
+			upload_relay_changelogs("FAN OFF");
+		}
+	}
+	else if (HPIN == HPIN_SPRAY) {
+		if (STT == ON) {
+			STT_SPRAY = STT_ON;
+			digitalWrite(HPIN, true);
+			upload_relay_changelogs("SPRAY ON");
+		}
+		else if (STT == OFF) {
+			STT_SPRAY = STT_OFF;
+			digitalWrite(HPIN, false);
+			upload_relay_changelogs("SPRAY OFF");
+		}
+	}
+	else if (HPIN == HPIN_COVER) {
+		if (STT == ON) {
+			STT_COVER = STT_ON;
+			digitalWrite(HPIN_COVER_OPEN, true);
+			digitalWrite(HPIN_COVER_CLOSE, false);
+			upload_relay_changelogs("COVER ON");
+		}
+		else if (STT == OFF) {
+			STT_COVER = STT_OFF;
+			digitalWrite(HPIN_COVER_OPEN, false);
+			digitalWrite(HPIN_COVER_CLOSE, true);
+			upload_relay_changelogs("COVER OFF");
+		}
+		else if (STT == MID) {
+			STT_COVER = STT_OFF;
+			digitalWrite(HPIN_COVER_OPEN, false);
+			digitalWrite(HPIN_COVER_CLOSE, false);
+			upload_relay_changelogs("COVER STOP");
+		}
+	}
 }
 
 void handle_rf_communicate() {
@@ -376,22 +408,22 @@ int button_read() {
 				switch (pre[0])
 				{
 				case BT_LEFT:
-					Dprintln("BT_LEFT");
+					Dprintln(F("\r\nBT_LEFT"));
 					break;
 				case BT_DOWN:
-					Dprintln("BT_DOWN");
+					Dprintln(F("\r\nBT_DOWN"));
 					break;
 				case BT_RIGHT:
-					Dprintln("BT_RIGHT");
+					Dprintln(F("\r\nBT_RIGHT"));
 					break;
 				case BT_UP:
-					Dprintln("BT_UP");
+					Dprintln(F("\r\nBT_UP"));
 					break;
 				case BT_BACK:
-					Dprintln("BT_BACK");
+					Dprintln(F("\r\nBT_BACK"));
 					break;
 				case BT_ENTER:
-					Dprintln("BT_ENTER");
+					Dprintln(F("\r\nBT_ENTER"));
 					break;
 				default:
 					break;
@@ -489,21 +521,35 @@ void lcd_showMainMenu() {
 	lcd_print("NODE ID 2", LINE3, LEFT, 1);
 
 }
+
+void lcd_showTime() {
+	static ulong t = millis();
+	if ((millis() - t) >= 1000) {
+		t = millis();
+		String time = getTimeString();
+		lcd.setCursor(12, 0);
+		lcd.print(time);
+	}
+}
 #pragma endregion
 
 //=========================================================================
 
 #pragma region WiFi Init
 void wifi_init() {
-	Dprintln(F("\r\nConnecting to WiFi")); 
+	Dprintln(F("\r\nConnecting to WiFi"));
 	if (WiFi.isConnected()) {
 		return;
 	}
 	WiFi.begin("IoT Wifi", "mic@dtu12345678()");
 	WiFi.waitForConnectResult();
+	ulong t = millis();
 	while (1) {
 		if (WiFi.isConnected()) {
 			break;
+		}
+		if ((millis() - t) > 60000) {
+			ESP.deepSleep(10000);
 		}
 		delay(1);
 	}
@@ -697,7 +743,7 @@ void mqtt_callback(char* topic, uint8_t* payload, unsigned int length) {
 	//Dprintln(ESP.getFreeHeap());
 
 	String topicStr = topic;
-	Dprintf("\r\nMQTT >>> %s [%d]\r\n", topicStr.c_str(), length);
+	Dprintf("\r\nMQTT >>> [%d] %s\r\n", length, topicStr.c_str());
 	//Dprintln(topicStr);
 	//Dprint(F("Message arrived: "));
 	//Dprint(topicStr);
@@ -736,6 +782,7 @@ void mqtt_callback(char* topic, uint8_t* payload, unsigned int length) {
 }
 
 void mqtt_reconnect() {  // Loop until we're reconnected
+	ulong t = millis();
 	while (!mqtt_client.connected()) {
 		Dprint(F("Attempting MQTT connection..."));
 		//boolean connect(const char* id, const char* willTopic, uint8_t willQos, boolean willRetain, const char* willMessage);
@@ -750,6 +797,9 @@ void mqtt_reconnect() {  // Loop until we're reconnected
 			mqtt_client.subscribe(libs.c_str());
 		}
 		else {
+			if ((millis() - t) > 120000) {
+				ESP.deepSleep(10000);
+			}
 			Dprint(F("failed, rc="));
 			Dprint(mqtt_client.state());
 			Dprintln(F(" try again"));
@@ -775,7 +825,7 @@ void mqtt_loop() {
 }
 
 bool mqtt_publish(String topic, String payload, bool retain) {
-	Dprintf("\r\nMQTT <<< %s [%d]\r\n", topic.c_str(), payload.length());
+	Dprintf("\r\nMQTT <<< [%d] %s\r\n", payload.length(), topic.c_str());
 	//Dprintln(topic);
 	Dprintln(payload);
 	//Dprintln();
@@ -832,7 +882,7 @@ String http_request(String host, uint16_t port = 80, String url = "/") {
 #pragma region TASKS
 void updateTimeStamp(unsigned long interval = 0) {
 	static unsigned long t_pre_update = 0;
-	static bool isSync = false;
+	static bool wasSync = false;
 	if (interval == 0) {
 		String strTimeStamp = http_request("mic.duytan.edu.vn", 88, "/api/GetUnixTime");
 		Dprintln(strTimeStamp);
@@ -842,9 +892,11 @@ void updateTimeStamp(unsigned long interval = 0) {
 			time_t ts = String(jsTimeStamp["UNIX_TIME"].asString()).toInt();
 			if (ts > 1000000000) {
 				t_pre_update = millis();
-				isSync = true;
+				wasSync = true;
 				setTime(ts);
+				adjustTime(7 * SECS_PER_HOUR);
 				Dprintln(F("Time Updated\r\n"));
+				lcd_showTime();
 				return;
 			}
 		}
@@ -854,7 +906,7 @@ void updateTimeStamp(unsigned long interval = 0) {
 			updateTimeStamp();
 		}
 	}
-	if (!isSync) {
+	if (!wasSync) {
 		updateTimeStamp();
 	}
 }
@@ -892,7 +944,7 @@ void updateHubHardwareStatus(unsigned long interval = 5000) {
 }
 #pragma endregion
 
-
+#define IDLE	delayMicroseconds(200);
 
 void setup()
 {
@@ -911,11 +963,18 @@ void setup()
 
 void loop()
 {
-	updateHubHardwareStatus(5000);
-	updateTimeStamp(60000);
-	mqtt_loop();
-	handle_rf_communicate();
-	handle_serial();
-	button_read();
-	delay(0);
+	IDLE
+		updateHubHardwareStatus(30000);
+	IDLE
+		updateTimeStamp(60000);
+	IDLE
+		mqtt_loop();
+	IDLE
+		handle_rf_communicate();
+	IDLE
+		handle_serial();
+	IDLE
+		button_read();
+	IDLE
+		lcd_showTime();
 }
