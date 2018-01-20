@@ -911,8 +911,8 @@ void updateTimeStamp(unsigned long interval = 0) {
 	}
 }
 
-int wifi_quality(int32_t dBm) {
-	WiFi.RSSI();
+int wifi_quality() {
+	int dBm = WiFi.RSSI();
 	if (dBm <= -100)
 		return 0;
 	else if (dBm >= -50)
@@ -932,7 +932,7 @@ void updateHubHardwareStatus(unsigned long interval = 5000) {
 		jsHubHardwareStatus[DEST] = SERVER;
 		jsHubHardwareStatus[TIMESTAMP] = String(now());
 		jsHubHardwareStatus[CMD_T] = (int)UPDATE_DATA_HUB_HARDWARE_STATUS;
-		jsHubHardwareStatus["WIFI_SIGNAL"] = String(wifi_quality(WiFi.RSSI()));
+		jsHubHardwareStatus["WIFI_SIGNAL"] = String(wifi_quality());
 		jsHubHardwareStatus["TEMP_INTERNAL"] = String(temperatureRead(), 2);
 
 		String strHubHardwareStatus;

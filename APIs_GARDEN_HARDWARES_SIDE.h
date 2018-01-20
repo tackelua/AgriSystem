@@ -1,22 +1,9 @@
 ﻿#define IGNORE_THIS_FILE
 #ifndef IGNORE_THIS_FILE
 
-#define API_VERSION  "0.1.11"
+#define API_VERSION  "0.1.12"
 
-/*
-	v0.1.9
-		Quy định thông báo HUB STATUS
-	v0.1.8
-		Thêm trường TIMESTAMP vào mỗi mói tin MQTT
-	v0.1.7
-		Quy định retain cho các COMMAND_TYPE
-	v0.1.6
-		Quy định cách đặt ID cho từng thiết bị
-	v0.1.5
-		Fix LIBRARIES
-	v0.1.4
-		Add Schedule ON, OFF
-*/
+//======================================================================================================================================
 
 Cách đặt ID cho các thiết bị: tất cả kí tự đề là chữ HOA
 	GARDEN_HUB		   : HXXXXX
@@ -311,9 +298,10 @@ UPDATE_DATA_TANK_CONTROLER
 
 
 #region LIBRARIES
+
+GARDEN_NODE
 - HUB sẽ subscribe vào topic "AGRISYSTEM/<HubID>/LIBS/#"
 - Thông tin về thư viện của từng TRAY sẽ được APP or SERVER publish lên topic "AGRISYSTEM/<HubID>/LIBS/<TrayID>" with retain
-- HUB nhận được sẽ chuyển về NODE
 Nội dung tùy 
    {
 	  "MES_ID"		: "<string>",
@@ -328,16 +316,43 @@ Nội dung tùy
       // "TRAY_CREATED_DATE":"2017-12-22T00:00:00",
       // "TRAY_HARVEST_STATUS":1,
       //"PLANT_ID":1,
-      "LIGHT_MIN"	: 1,
-      "LIGHT_MAX"	: 1,
-      "HUMI_MIN"	: 1,
-      "HUMI_MAX"	: 1,
-      "TEMP_MIN"	: 1,
-      "TEMP_MAX"	: 1,
-      "AUTO_STATUS"	: 1,
-	  "INTERVAL_UPDATE": int(second),
-	  "SCHELDULE"	: "21:00:00_21:10:00, ..." //ThờiGian-bật_Số-phút-bật
+      "LIGHT_MIN"		: 1,
+      "LIGHT_MAX"		: 1,
+      "HUMI_MIN"		: 1,
+      "HUMI_MAX"		: 1,
+	  "TEMP_MIN"		: 1,
+	  "TEMP_MAX"		: 1,
+	  "PH_MIN"			: 1,
+	  "PH_MAX"			: 1,
+	  "EC_MIN"			: 1,
+	  "EC_MAX"			: 1,
+      "AUTO_STATUS"		: 1,
+	  "INTERVAL_UPDATE"	: int(second),
+	  "SCHELDULE_SPRAY"	: "21:00:00_21:10:00",
+	  "SCHELDULE_LIGHT"	: "21:00:00_21:10:00, ..." //ThờiGian-bật_Số-phút-bật
    }
+
+- HUB nhận được sẽ chuyển về NODE
+	{
+		"HUB_ID" : "<string>",
+		"DEST" : "<string>",
+		"CMD_T" : LIBS_GARDEN_NODE,
+
+		"L1" : 12323,
+		"L2" : 1223,
+		"H1" : 12323,
+		"H2" : 12,
+		"T1" : 123,
+		"T2" : 12,
+		"P1" : 12,
+		"P2" : 331,
+		"E1" : 3231,
+		"E2" : 1232,
+		"AS" : 2323231,
+		"IU" : 233232322,
+		"SD" : "21:00:00_21:10:00, ..." //ThờiGian-bật_Số-phút-bật
+	}
+
 #end region
 
 #region HUB STATUS
