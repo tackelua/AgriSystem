@@ -1,5 +1,6 @@
 ﻿#pragma region DECLARATION
 
+#include <QList.h>
 #include <TimeLib.h>
 #include <Time.h>
 #include <esp_system.h>
@@ -10,11 +11,27 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _FIRMWARE_VERSION ("0.1.13" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.14" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
 LiquidCrystal_I2C lcd(0x3f, 20, 4);
+
+String HubID;
+String MQTT_TOPIC_MAIN;
+
+String mqtt_Message;
+String rf_Message;
+
+
+const char* mqtt_server = "mic.duytan.edu.vn";
+const char* mqtt_user = "Mic@DTU2017";
+const char* mqtt_password = "Mic@DTU2017!@#";
+const uint16_t mqtt_port = 1883;
+
+WiFiClient mqtt_espClient;
+PubSubClient mqtt_client(mqtt_espClient);
+
 
 #define DB_BAUDRATE	921600
 #define RF_BAUDRATE	115200
@@ -29,7 +46,9 @@ LiquidCrystal_I2C lcd(0x3f, 20, 4);
 #define Rprint		RF.print
 #define Rprintln	RF.println
 #define Rprintf		RF.printf
-#define Rflush		RF.flush
+#define Rflush		RF.
+
+#define IDLE	delayMicroseconds(200);
 
 #define LED_STATUS			LED_BUILTIN
 #define HPIN_LIGHT			33
@@ -55,6 +74,7 @@ enum BUTTON {
 #define CMD_T		"CMD_T"
 #define MES_ID		"MES_ID"
 #define HUB_ID		"HUB_ID"
+#define HUB_NAME	"HUB_NAME"
 #define SOURCE		"SOURCE"
 #define DEST		"DEST"
 #define TIMESTAMP	"TIMESTAMP"
@@ -99,18 +119,19 @@ enum COMMAND_TYPE {
 
 	NOTIFICATION
 };
-enum NODE_TYPE {
-	GARDEN_HUB = 0,
+enum DEVICE_TYPE {
+	UNKNOWN = 0,
+	GARDEN_HUB,
 	GARDEN_NODE,
 	ENVIROMENT_MONITOR,
 	TANK_CONTROLER
 };
-
-String HubID;
-String MQTT_TOPIC_MAIN;
-
-String mqtt_Message;
-String rf_Message;
+struct Devices_Info {
+	String ID;
+	String Name;
+	DEVICE_TYPE Type;
+};
+QList<Devices_Info> DevicesList;
 #pragma endregion
 
 
@@ -449,97 +470,6 @@ int button_read() {
 #pragma endregion
 
 
-//-------------------------------------------------------------------------
-//LCD
-#pragma region LCD
-
-enum ALIGN {
-	LEFT,
-	MIDDLE,
-	RIGHT
-};
-enum LINE {
-	LINE1,
-	LINE2,
-	LINE3,
-	LINE4
-};
-void lcd_print(String data, int line, int align = MIDDLE, int padding_left = 0) {
-	if (line >= 4) { return; }
-	String data_fullLine;
-	int numSpace = 0;
-	switch (align)
-	{
-	case LEFT:
-		data_fullLine = data;
-		numSpace = 20 - data.length();
-		for (int i = 0; i < numSpace; i++)
-		{
-			data_fullLine += " ";
-		}
-		break;
-	case MIDDLE:
-		numSpace = (20 - data.length()) / 2;
-		for (int i = 0; i < numSpace; i++)
-		{
-			data_fullLine += " ";
-		}
-		data_fullLine += data;
-		for (int i = 0; i < numSpace; i++)
-		{
-			data_fullLine += " ";
-		}
-		break;
-	case RIGHT:
-		numSpace = 20 - data.length();
-		for (int i = 0; i < numSpace; i++)
-		{
-			data_fullLine += " ";
-		}
-		data_fullLine += data;
-		break;
-	default:
-		break;
-	}
-	for (int i = 0; i < padding_left; i++)
-	{
-		data_fullLine = " " + data_fullLine;
-	}
-
-	if (line < 4) {
-		lcd.setCursor(0, line);
-		lcd.print(data_fullLine);
-	}
-}
-
-void lcd_init() {
-	lcd.begin(21, 22);
-	lcd.backlight();
-	lcd_print("AGRISYSTEM/" + HubID, LINE1, MIDDLE);
-	lcd_print("IoT Labs - MIC@DTU", LINE2, MIDDLE);
-	lcd_print("Starting", LINE3, MIDDLE);
-}
-
-void lcd_showMainMenu() {
-	lcd.clear();
-	lcd_print("HUB STATUS", LINE1, LEFT, 1);
-	lcd_print("NODE ID 1", LINE2, LEFT, 1);
-	lcd_print("NODE ID 2", LINE3, LEFT, 1);
-
-}
-
-void lcd_showTime() {
-	static ulong t = millis();
-	if ((millis() - t) >= 1000) {
-		t = millis();
-		String time = getTimeString();
-		lcd.setCursor(12, 0);
-		lcd.print(time);
-	}
-}
-#pragma endregion
-
-//=========================================================================
 
 #pragma region WiFi Init
 void wifi_init() {
@@ -612,19 +542,50 @@ void wifi_init() {
 #pragma endregion
 
 
+#pragma region HTTP
+String http_request(String host, uint16_t port = 80, String url = "/") {
+	Dprintln("\r\nGET " + host + ":" + String(port) + url);
+	WiFiClient client;
+	client.setTimeout(100);
+	if (!client.connect(host.c_str(), port)) {
+		Dprintln("connection failed");
+		return "";
+	}
+	client.print(String("GET ") + url + " HTTP/1.1\r\n" +
+		"Host: " + host + "\r\n" +
+		"Connection: close\r\n\r\n");
+	unsigned long timeout = millis();
+	while (client.available() == 0) {
+		if (millis() - timeout > 2000) {
+			Dprintln(">>> Client Timeout !");
+			client.stop();
+			return "";
+		}
+	}
+
+	// Read all the lines of the reply from server and print them to Serial
+	//while (client.available()) {
+	//	String line = client.readStringUntil('\r');
+	//	Dprint(line);
+	//}
+	//Dprintln();
+	//Dprintln();
+	String body;
+	if (client.available()) {
+		body = client.readString();
+		int pos_body_begin = body.indexOf("\r\n\r\n");
+		if (pos_body_begin > 0) {
+			body = body.substring(pos_body_begin + 4);
+		}
+	}
+	client.stop();
+	body.trim();
+	return body;
+}
+#pragma endregion
+
+
 #pragma region MQTT
-
-const char* mqtt_server = "mic.duytan.edu.vn";
-const char* mqtt_user = "Mic@DTU2017";
-const char* mqtt_password = "Mic@DTU2017!@#";
-const uint16_t mqtt_port = 1883;
-
-WiFiClient mqtt_espClient;
-PubSubClient mqtt_client(mqtt_espClient);
-
-StaticJsonBuffer<10000> jsonBuffer;
-JsonObject& ListGardenDevicesJs = jsonBuffer.parseObject("{}");
-JsonArray& ListGardenDevicesJsArray = ListGardenDevicesJs.createNestedArray("List");
 
 void parseJsonMainFromServer(String& json) {
 	StaticJsonBuffer<500> jsonBuffer;
@@ -673,20 +634,6 @@ void parseJsonMainFromServer(String& json) {
 	}
 }
 
-bool check_NodeIsExist_in_ListGardenDevicesJs(String trayID) {
-	/*
-	{
-	   "List":[
-		  "Tray ID 1",
-		  "Tray ID 2",
-		  "Tray ID 3",
-		  "Tray ID 4",
-		  "Tray ID 5"
-	   ]
-	}
-	*/
-}
-
 void parseJsonLibsFromServer(String& json) {
 	//Phân tích json và lưu vào LibsNodes
 	//Gửi json đến Node
@@ -713,31 +660,24 @@ void parseJsonLibsFromServer(String& json) {
 	}
 	*/
 
-	StaticJsonBuffer<500> jsonBufferServer;
-	JsonObject& nodeLib = jsonBufferServer.parseObject(json);
-	if (!nodeLib.success()) {
-		Dprintln(F("#ERR json invalid"));
-		Dprintln();
-		return;
-	}
-	String TRAYID = nodeLib["TRAY_ID"].asString();
-	String HUBCODE = nodeLib["HUB_CODE"].asString();
-	String TRAYNAME = nodeLib["TRAY_NAME"].asString();
-	int LIGHTMIN = nodeLib["LIGHT_MIN"].as<int>();
-	int LIGHTMAX = nodeLib["LIGHT_MAX"].as<int>();
-	int HUMIMIN = nodeLib["HUMI_MIN"].as<int>();
-	int HUMIMAX = nodeLib["HUMI_MAX"].as<int>();
-	int TEMPMIN = nodeLib["TEMP_MIN"].as<int>();
-	int TEMPMAX = nodeLib["TEMP_MAX"].as<int>();
-	int AUTOSTATUS = nodeLib["AUTO_STATUS"].as<int>();
-	int INTERVALUPDATE = nodeLib["INTERVAL_UPDATE"].as<int>();
-
-	JsonObject& TRAYDATA = ListGardenDevicesJs.createNestedObject(TRAYID);
-	ListGardenDevicesJsArray.add("Tray ID 1");
-
-	Dprintln(F("\r\nLibsNodes"));
-	ListGardenDevicesJs.prettyPrintTo(DEBUG);
-	Dprintln();
+	//StaticJsonBuffer<500> jsonBufferServer;
+	//JsonObject& nodeLib = jsonBufferServer.parseObject(json);
+	//if (!nodeLib.success()) {
+	//	Dprintln(F("#ERR json invalid"));
+	//	Dprintln();
+	//	return;
+	//}
+	//String TRAYID = nodeLib["TRAY_ID"].asString();
+	//String HUBCODE = nodeLib["HUB_CODE"].asString();
+	//String TRAYNAME = nodeLib["TRAY_NAME"].asString();
+	//int LIGHTMIN = nodeLib["LIGHT_MIN"].as<int>();
+	//int LIGHTMAX = nodeLib["LIGHT_MAX"].as<int>();
+	//int HUMIMIN = nodeLib["HUMI_MIN"].as<int>();
+	//int HUMIMAX = nodeLib["HUMI_MAX"].as<int>();
+	//int TEMPMIN = nodeLib["TEMP_MIN"].as<int>();
+	//int TEMPMAX = nodeLib["TEMP_MAX"].as<int>();
+	//int AUTOSTATUS = nodeLib["AUTO_STATUS"].as<int>();
+	//int INTERVALUPDATE = nodeLib["INTERVAL_UPDATE"].as<int>();
 
 	Rprintln(json);
 }
@@ -844,47 +784,99 @@ bool mqtt_publish(String topic, String payload, bool retain) {
 #pragma endregion
 
 
-#pragma region HTTP
-String http_request(String host, uint16_t port = 80, String url = "/") {
-	Dprintln("\r\nGET " + host + ":" + String(port) + url);
-	WiFiClient client;
-	client.setTimeout(100);
-	if (!client.connect(host.c_str(), port)) {
-		Dprintln("connection failed");
-		return "";
-	}
-	client.print(String("GET ") + url + " HTTP/1.1\r\n" +
-		"Host: " + host + "\r\n" +
-		"Connection: close\r\n\r\n");
-	unsigned long timeout = millis();
-	while (client.available() == 0) {
-		if (millis() - timeout > 2000) {
-			Dprintln(">>> Client Timeout !");
-			client.stop();
-			return "";
+#pragma region LCD
+
+enum ALIGN {
+	LEFT,
+	MIDDLE,
+	RIGHT
+};
+enum LINE {
+	LINE1,
+	LINE2,
+	LINE3,
+	LINE4
+};
+void lcd_print(String data, int line, int align = MIDDLE, int padding_left = 0) {
+	if (line >= 4) { return; }
+	String data_fullLine;
+	int numSpace = 0;
+	switch (align)
+	{
+	case LEFT:
+		data_fullLine = data;
+		numSpace = 20 - data.length();
+		for (int i = 0; i < numSpace; i++)
+		{
+			data_fullLine += " ";
 		}
+		break;
+	case MIDDLE:
+		numSpace = (20 - data.length()) / 2;
+		for (int i = 0; i < numSpace; i++)
+		{
+			data_fullLine += " ";
+		}
+		data_fullLine += data;
+		for (int i = 0; i < numSpace; i++)
+		{
+			data_fullLine += " ";
+		}
+		break;
+	case RIGHT:
+		numSpace = 20 - data.length();
+		for (int i = 0; i < numSpace; i++)
+		{
+			data_fullLine += " ";
+		}
+		data_fullLine += data;
+		break;
+	default:
+		break;
+	}
+	for (int i = 0; i < padding_left; i++)
+	{
+		data_fullLine = " " + data_fullLine;
 	}
 
-	// Read all the lines of the reply from server and print them to Serial
-	//while (client.available()) {
-	//	String line = client.readStringUntil('\r');
-	//	Dprint(line);
-	//}
-	//Dprintln();
-	//Dprintln();
-	String body;
-	if (client.available()) {
-		body = client.readString();
-		int pos_body_begin = body.indexOf("\r\n\r\n");
-		if (pos_body_begin > 0) {
-			body = body.substring(pos_body_begin + 4);
+	if (line < 4) {
+		if ((data_fullLine.length() + padding_left) > 20) {
+			data_fullLine = data_fullLine.substring(0, 20);
 		}
+		lcd.setCursor(0, line);
+		lcd.print(data_fullLine);
 	}
-	client.stop();
-	body.trim();
-	return body;
+}
+
+void lcd_init() {
+	lcd.begin(21, 22);
+	lcd.backlight();
+	lcd_print("AGRISYSTEM/" + HubID, LINE1, MIDDLE);
+	lcd_print("IoT Labs - MIC@DTU", LINE2, MIDDLE);
+	lcd_print("Starting", LINE3, MIDDLE);
+}
+
+void lcd_showMainMenu() {
+	lcd.clear();
+	lcd_print("HUB STATUS", LINE1, LEFT, 1);
+	lcd_print("NODE ID 1", LINE2, LEFT, 1);
+	lcd_print("NODE ID 2NODE ID 2NODE ID 2NODE ID 2", LINE3, LEFT, 1);
+	//lcd_print("Vườn hoa sữa", LINE4, LEFT, 1);
+
+}
+
+void lcd_showTime() {
+	static ulong t = millis();
+	if ((millis() - t) >= 1000) {
+		t = millis();
+		String time = getTimeString();
+		lcd.setCursor(12, 0);
+		lcd.print(time);
+		//Dprintf("\r\nFREE HEAP = %d\r\n", ESP.getFreeHeap());
+	}
 }
 #pragma endregion
+
 
 #pragma region TASKS
 void updateTimeStamp(unsigned long interval = 0) {
@@ -949,9 +941,37 @@ void updateHubHardwareStatus(unsigned long interval = 5000) {
 		mqtt_publish(MQTT_TOPIC_MAIN + "/" RESPONSE, strHubHardwareStatus, true);
 	}
 }
+
+bool update_tray_list() {
+	String _devices_List = http_request("mic.duytan.edu.vn", 88, "/api/GetAllHubDevices/HUB_ID=" + HubID);
+
+	DynamicJsonBuffer jsonBufferDevicesList(10000);
+	JsonObject& DevicesListJsObj = jsonBufferDevicesList.parseObject(_devices_List);
+	if (DevicesListJsObj.success()) {
+		DevicesList.clear();
+		Devices_Info _Hub_Info;
+		_Hub_Info.ID = DevicesListJsObj[HUB_ID].asString();
+		_Hub_Info.Name = DevicesListJsObj[HUB_NAME].asString();
+		DevicesList.push_front(_Hub_Info);
+
+		int  total_devices = DevicesListJsObj["TOTAL_DEVICES"].as<int>();
+		if (total_devices > 0) {
+			JsonArray& DevicesListJsArr = DevicesListJsObj["DEVICE_LIST"];
+			for (int i = 0; i < total_devices; i++) {
+				Devices_Info _Device_Info;
+				JsonObject& DeviceInfoJsObj = DevicesListJsArr[i];
+				_Device_Info.ID = DeviceInfoJsObj["DEVICE_ID"].asString();
+				_Device_Info.Name = DeviceInfoJsObj["DEVICE_NAME"].asString();
+
+				DevicesList.push_back(_Device_Info);
+			}
+		}
+		return true;
+	}
+	return false;
+}
 #pragma endregion
 
-#define IDLE	delayMicroseconds(200);
 
 void setup()
 {
@@ -966,6 +986,16 @@ void setup()
 	mqtt_init();
 
 	lcd_showMainMenu();
+
+	if (update_tray_list()) {
+		int len = DevicesList.length();
+		Dprintf("DevicesList Length = %d\n", len);
+		for (int i = 0; i < 4; i++)
+		{
+			Devices_Info device_info = DevicesList.at(i);
+			lcd_print(device_info.Name, i, LEFT, 0);
+		}
+	}
 }
 
 void loop()
