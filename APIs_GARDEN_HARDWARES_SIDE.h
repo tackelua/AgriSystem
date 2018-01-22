@@ -1,7 +1,7 @@
 ﻿#define IGNORE_THIS_FILE
 #ifndef IGNORE_THIS_FILE
 
-#define API_VERSION  "0.1.12"
+#define API_VERSION  "0.1.13"
 
 //======================================================================================================================================
 
@@ -45,9 +45,11 @@ enum COMMAND_TYPE {
 	UPDATE_DATA_ENVIROMENT_MONITOR,				//with retain
 	UPDATE_DATA_TANK_CONTROLER,					//with retain
 
-	UPDATE_DATA_HUB_HARDWARE_STATUS,			//with retain
+	UPDATE_HUB_HARDWARE_STATUS,					//with retain
 	UPDATE_ACTION_LOGS,
-	LIBS_GARDEN_NODE
+	LIBS_GARDEN_NODE,
+
+	NOTIFICATION
 };
 
 enum NODE_TYPE {
@@ -56,6 +58,39 @@ enum NODE_TYPE {
 	ENVIROMENT_MONITOR,
 	TANK_CONTROLER
 };
+
+enum NOTIFICATION_TYPE {
+	NO_NOTIFY = 0,
+
+	HUB_ONLINE,
+	HUB_OFFLINE,
+
+	LIGHT_TOO_HIGH,
+	LIGHT_TOO_LOW,
+	
+	TEMP_GARDEN_TOO_HIGH,
+	TEMP_GARDEN_TOO_LOW,
+	HUMI_GARDEN_TOO_LIGH,
+	HUMI_GARDEN_TOO_LOW,
+
+	TEMP_SOIL_TOO_LOW,
+	TEMP_SOIL_TOO_HIGH,
+	HUMI_SOIL_TOO_LOW,
+	HUMI_SOIL_TOO_HIGH,
+	
+	RAIN,
+	WINDY_TOO_STRONG,
+	WATER_TOO_LOW,
+	WATER_A_LOW,
+	WATER_B_LOW,
+
+	ERROR_SENSOR_TEMP,
+	ERROR_SENSOR_HUMI,
+	ERROR_SENSOR_LIGHT,
+	ERROR_SENSOR_PH,
+	ERROR_SENSOR_EC
+};
+
 
 /*
 	GARDEN_HUB
@@ -384,5 +419,20 @@ Topic: "AGRISYSTEM/<HubID>/LOGS"
 		"ACTION_TO"		: "N13123"
 	}
 #end region
+
+
+#region NOTIFICATION
+Topic : "AGRISYSTEM/<HubID>/NOTIFY"
+{
+		"MES_ID"		: "",
+		"HUB_ID"		: "<HubID>",
+		"SOURCE"		: "<DeviceID>",
+		"DEST"			: "SERVER",
+		"TIMESTAMP"		: "155555555555555", //DEVICE gửi lên có thể ko cần trường này, HUB sẽ tự thêm
+		"CMD_T":		: COMMAND_TYPE::NOTIFICATION,
+		"NOTI_T"		: NOTIFICATION_TYPE
+	}
+#end region
+
 
 #endif

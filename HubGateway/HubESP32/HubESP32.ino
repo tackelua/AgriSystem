@@ -10,7 +10,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _FIRMWARE_VERSION ("0.1.12" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.13" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -93,9 +93,11 @@ enum COMMAND_TYPE {
 	UPDATE_DATA_ENVIROMENT_MONITOR,
 	UPDATE_DATA_TANK_CONTROLER,
 
-	UPDATE_DATA_HUB_HARDWARE_STATUS,
+	UPDATE_HUB_HARDWARE_STATUS,
 	UPDATE_ACTION_LOGS,
-	LIBS_GARDEN_NODE
+	LIBS_GARDEN_NODE,
+
+	NOTIFICATION
 };
 enum NODE_TYPE {
 	GARDEN_HUB = 0,
@@ -223,6 +225,7 @@ void upload_relay_changelogs(String action_name, bool isAppControl = true) {
 	jsRelayChangelog[DEST] = SERVER;
 	jsRelayChangelog[TIMESTAMP] = String(now());
 	jsRelayChangelog[CMD_T] = int(UPDATE_ACTION_LOGS);
+	jsRelayChangelog["HUB_CODE"] = HubID;
 	jsRelayChangelog["ACTION_NAME"] = action_name;
 	jsRelayChangelog["ACTION_FROM"] = isAppControl ? "APP" : HubID;
 	jsRelayChangelog["ACTION_TO"] = HubID;
@@ -309,12 +312,12 @@ void handle_rf_communicate() {
 	DynamicJsonBuffer jsonBufferNodeData(500);
 	JsonObject& nodeData = jsonBufferNodeData.parseObject(rf_Message);
 
+	static byte number_rf_fail = 0;
 	if (!nodeData.success()) {
 		Dprintln(F("#ERR rf_Message invalid"));
 		//Dprintln(rf_Message);
-		static byte total_rf_fail = 0;
-		if (++total_rf_fail > 5) {
-			total_rf_fail = 0;
+		if (++number_rf_fail > 5) {
+			number_rf_fail = 0;
 			Dprintln(F("RESET RF SERIAL"));
 			//RF.end();
 			//delay(1);
@@ -324,6 +327,9 @@ void handle_rf_communicate() {
 		}
 		Dprintln();
 		return;
+	}
+	else {
+		number_rf_fail = 0;
 	}
 
 	String _hubID = nodeData[HUB_ID].as<String>();
@@ -575,27 +581,27 @@ void wifi_init() {
 	//}
 
 	WiFi.printDiag(Serial);
-	Serial.println(F("\nConnecting..."));
+	Dprintln(F("\nConnecting..."));
 
 	if (WiFi.waitForConnectResult() == WL_CONNECTED)
 	{
-		Serial.println(F("connected\n"));
+		Dprintln(F("connected\n"));
 	}
 	else
 	{
-		Serial.println(F("connect again\n"));
+		Dprintln(F("connect again\n"));
 		if (WiFi.waitForConnectResult() == WL_CONNECTED)
 		{
-			Serial.println(F("connected\n"));
+			Dprintln(F("connected\n"));
 			return;
 		}
 
-		Serial.println(F("SmartConfig started."));
+		Dprintln(F("SmartConfig started."));
 		WiFi.beginSmartConfig();
 		while (1) {
 			delay(500);
 			if (WiFi.smartConfigDone()) {
-				Serial.println(F("SmartConfig: Success"));
+				Dprintln(F("SmartConfig: Success"));
 				WiFi.printDiag(Serial);
 				//WiFi.stopSmartConfig();
 				break;
@@ -842,6 +848,7 @@ bool mqtt_publish(String topic, String payload, bool retain) {
 String http_request(String host, uint16_t port = 80, String url = "/") {
 	Dprintln("\r\nGET " + host + ":" + String(port) + url);
 	WiFiClient client;
+	client.setTimeout(100);
 	if (!client.connect(host.c_str(), port)) {
 		Dprintln("connection failed");
 		return "";
@@ -931,7 +938,7 @@ void updateHubHardwareStatus(unsigned long interval = 5000) {
 		jsHubHardwareStatus[SOURCE] = HubID;
 		jsHubHardwareStatus[DEST] = SERVER;
 		jsHubHardwareStatus[TIMESTAMP] = String(now());
-		jsHubHardwareStatus[CMD_T] = (int)UPDATE_DATA_HUB_HARDWARE_STATUS;
+		jsHubHardwareStatus[CMD_T] = (int)UPDATE_HUB_HARDWARE_STATUS;
 		jsHubHardwareStatus["WIFI_SIGNAL"] = String(wifi_quality());
 		jsHubHardwareStatus["TEMP_INTERNAL"] = String(temperatureRead(), 2);
 
