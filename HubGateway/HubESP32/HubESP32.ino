@@ -11,11 +11,25 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _FIRMWARE_VERSION ("0.1.14" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.15" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
 LiquidCrystal_I2C lcd(0x3f, 20, 4);
+#define SB_SELECT	0 //symbol select
+byte SELECT[8] =
+{
+
+
+	B10000,
+	B11000,
+	B11100,
+	B11110,
+	B11100,
+	B11000,
+	B10000,
+	B00000
+};
 
 String HubID;
 String MQTT_TOPIC_MAIN;
@@ -67,6 +81,18 @@ enum BUTTON {
 	BT_UP,
 	BT_BACK,	//yellow
 	BT_ENTER	//red
+};
+
+enum ALIGN {
+	LEFT,
+	MIDDLE,
+	RIGHT
+};
+enum LINE {
+	LINE0,
+	LINE1,
+	LINE2,
+	LINE3
 };
 
 #define REQUEST		"REQUEST"
@@ -126,12 +152,116 @@ enum DEVICE_TYPE {
 	ENVIROMENT_MONITOR,
 	TANK_CONTROLER
 };
-struct Devices_Info {
+class Devices_Info {
+public:
 	String ID;
 	String Name;
 	DEVICE_TYPE Type;
+	Devices_Info(String id = "", String name = "") {
+		ID = id;
+		Name = name;
+		switch (name.charAt(0))
+		{
+		case 'H':
+			Type = GARDEN_HUB;
+			break;
+		case 'N':
+			Type = GARDEN_NODE;
+			break;
+		case 'E':
+			Type = ENVIROMENT_MONITOR;
+			break;
+		case 'T':
+			Type = TANK_CONTROLER;
+			break;
+		default:
+			break;
+		}
+	};
+
+	//những biến này phục vụ cho việc hiển thị trên LCD
+	bool isSelect = false;
+	int line = -1;
 };
+inline bool operator==(const Devices_Info& d1, const Devices_Info& d2) {
+	return ((d1.Name == d2.Name) && (d1.ID == d2.ID));
+}
+
 QList<Devices_Info> DevicesList;
+
+//===============
+
+class lcd_currsor_coordinate {
+public:
+	lcd_currsor_coordinate(int _col = 0, int _row = 0) {
+		col = _col;
+		row = _row;
+	}
+	int col;
+	int row;
+};
+void lcd_print(String data, int line, int align = MIDDLE, int padding_left = 0);
+
+class LCD_Frame_Main_Menu {
+public:
+	Devices_Info Device_Selected;
+	lcd_currsor_coordinate coordinate_current_symbol_select;
+	void init(Devices_Info deviceSelected, lcd_currsor_coordinate currsor_coordinate) {
+		Device_Selected = deviceSelected;
+		coordinate_current_symbol_select = currsor_coordinate;
+	}
+	void clear_symbol_select() {
+		lcd.setCursor(coordinate_current_symbol_select.col, coordinate_current_symbol_select.row);
+		lcd.print(' ');
+	}
+	void show_symbol_select() {
+		lcd.setCursor(coordinate_current_symbol_select.col, coordinate_current_symbol_select.row);
+		lcd.write(SB_SELECT);
+	}
+	void render() {
+		lcd.clear();
+		lcd_print(DevicesList.at(0).Name, LINE0, LEFT, 1); //HUB NAME
+
+		int pos_device_selected = DevicesList.indexOf(Device_Selected);
+		Dprintln("device selected  = " + String(pos_device_selected));
+		if (pos_device_selected >= 0) {
+			switch (coordinate_current_symbol_select.row)
+			{
+			case 0:
+				lcd_print(DevicesList.at(pos_device_selected + 1).Name, LINE1, LEFT, 1);
+				lcd_print(DevicesList.at(pos_device_selected + 2).Name, LINE2, LEFT, 1);
+				lcd_print(DevicesList.at(pos_device_selected + 3).Name, LINE3, LEFT, 1);
+				break;
+
+			case 1:
+				lcd_print(Device_Selected.Name, LINE1, LEFT, 1);
+				lcd_print(DevicesList.at(pos_device_selected + 1).Name, LINE2, LEFT, 1);
+				lcd_print(DevicesList.at(pos_device_selected + 2).Name, LINE3, LEFT, 1);
+				break;
+
+			case 2:
+				lcd_print(DevicesList.at(pos_device_selected - 1).Name, LINE1, LEFT, 1);
+				lcd_print(Device_Selected.Name, LINE2, LEFT, 1);
+				lcd_print(DevicesList.at(pos_device_selected + 1).Name, LINE3, LEFT, 1);
+				break;
+
+			case 3:
+				lcd_print(DevicesList.at(pos_device_selected - 2).Name, LINE1, LEFT, 1);
+				lcd_print(DevicesList.at(pos_device_selected - 1).Name, LINE2, LEFT, 1);
+				lcd_print(Device_Selected.Name, LINE3, LEFT, 1);
+				break;
+
+			default:
+				break;
+			}
+		}
+		show_symbol_select();
+	}
+
+	~LCD_Frame_Main_Menu() {
+		clear_symbol_select();
+	}
+} LCD_Current_Frame;
 #pragma endregion
 
 
@@ -168,8 +298,8 @@ void hardware_init() {
 	DEBUG.setTimeout(50);
 	Dprintln(F("\r\n### E S P ###"));
 
-	RF.begin(RF_BAUDRATE);
-	RF.setTimeout(200);
+	//RF.begin(RF_BAUDRATE);
+	//RF.setTimeout(200);
 
 	pinMode(HPIN_LIGHT, OUTPUT);
 	pinMode(HPIN_FAN, OUTPUT);
@@ -212,9 +342,6 @@ void hardware_init() {
 	Dprintf("\r\n\r\nHID=%s\r\n\r\n", HubID.c_str());
 	Dprintln(HubID);
 	Dprintln("Version: " + String(_FIRMWARE_VERSION));
-
-	lcd_init();
-
 }
 
 void upload_relay_hub_status() {
@@ -786,18 +913,7 @@ bool mqtt_publish(String topic, String payload, bool retain) {
 
 #pragma region LCD
 
-enum ALIGN {
-	LEFT,
-	MIDDLE,
-	RIGHT
-};
-enum LINE {
-	LINE1,
-	LINE2,
-	LINE3,
-	LINE4
-};
-void lcd_print(String data, int line, int align = MIDDLE, int padding_left = 0) {
+void lcd_print(String data, int line, int align, int padding_left) {
 	if (line >= 4) { return; }
 	String data_fullLine;
 	int numSpace = 0;
@@ -850,18 +966,33 @@ void lcd_print(String data, int line, int align = MIDDLE, int padding_left = 0) 
 
 void lcd_init() {
 	lcd.begin(21, 22);
+	lcd.createChar(SB_SELECT, SELECT);
 	lcd.backlight();
-	lcd_print("AGRISYSTEM/" + HubID, LINE1, MIDDLE);
-	lcd_print("IoT Labs - MIC@DTU", LINE2, MIDDLE);
-	lcd_print("Starting", LINE3, MIDDLE);
+	lcd_print("AGRISYSTEM/" + HubID, LINE0, MIDDLE);
+	lcd_print("IoT Labs - MIC@DTU", LINE1, MIDDLE);
+	lcd_print("Starting", LINE2, MIDDLE);
+}
+
+void lcd_select(int col, int row) {
+	static int old_col;
+	static int old_row;
+
+	lcd.setCursor(old_col, old_row);
+	lcd.print(' ');
+
+	old_col = col;
+	old_row = row;
+
+	lcd.setCursor(col, row);
+	lcd.write(SB_SELECT);
 }
 
 void lcd_showMainMenu() {
 	lcd.clear();
-	lcd_print("HUB STATUS", LINE1, LEFT, 1);
-	lcd_print("NODE ID 1", LINE2, LEFT, 1);
-	lcd_print("NODE ID 2NODE ID 2NODE ID 2NODE ID 2", LINE3, LEFT, 1);
-	//lcd_print("Vườn hoa sữa", LINE4, LEFT, 1);
+	lcd_print("HUB STATUS", LINE0, LEFT, 1);
+	lcd_print("NODE ID 1", LINE1, LEFT, 1);
+	lcd_print("NODE ID 2NODE ID 2NODE ID 2NODE ID 2", LINE2, LEFT, 1);
+	//lcd_print("Vườn hoa sữa", LINE3, LEFT, 1);
 
 }
 
@@ -869,10 +1000,16 @@ void lcd_showTime() {
 	static ulong t = millis();
 	if ((millis() - t) >= 1000) {
 		t = millis();
-		String time = getTimeString();
-		lcd.setCursor(12, 0);
-		lcd.print(time);
+		//String time = getTimeString();
+		//lcd.setCursor(12, 0);
+		//lcd.print(time);
+
 		//Dprintf("\r\nFREE HEAP = %d\r\n", ESP.getFreeHeap());
+
+		lcd.setCursor(17, 0);		lcd.print(dayShortStr(weekday()));
+		lcd.setCursor(18, 1);		lcd.print(hour());
+		lcd.setCursor(18, 2);		lcd.print(minute());
+		lcd.setCursor(18, 3);		lcd.print(second());
 	}
 }
 #pragma endregion
@@ -883,6 +1020,27 @@ void updateTimeStamp(unsigned long interval = 0) {
 	static unsigned long t_pre_update = 0;
 	static bool wasSync = false;
 	if (interval == 0) {
+		{
+			String strTimeStamp = http_request("date.jsontest.com");
+			Dprintln(strTimeStamp);
+			DynamicJsonBuffer timestamp(500);
+			JsonObject& jsTimeStamp = timestamp.parseObject(strTimeStamp);
+			if (jsTimeStamp.success()) {
+				String tt = jsTimeStamp["milliseconds_since_epoch"].asString();
+				tt = tt.substring(0, tt.length() - 3);
+				long ts = tt.toInt();
+				if (ts > 1000000000) {
+					t_pre_update = millis();
+					wasSync = true;
+					setTime(ts);
+					adjustTime(7 * SECS_PER_HOUR);
+					Dprintln(F("Time Updated\r\n"));
+					lcd_showTime();
+					return;
+				}
+			}
+		}
+
 		String strTimeStamp = http_request("mic.duytan.edu.vn", 88, "/api/GetUnixTime");
 		Dprintln(strTimeStamp);
 		DynamicJsonBuffer timestamp(500);
@@ -949,19 +1107,19 @@ bool update_tray_list() {
 	JsonObject& DevicesListJsObj = jsonBufferDevicesList.parseObject(_devices_List);
 	if (DevicesListJsObj.success()) {
 		DevicesList.clear();
-		Devices_Info _Hub_Info;
-		_Hub_Info.ID = DevicesListJsObj[HUB_ID].asString();
-		_Hub_Info.Name = DevicesListJsObj[HUB_NAME].asString();
+		String hid = DevicesListJsObj[HUB_ID].asString();
+		String hname = DevicesListJsObj[HUB_NAME].asString();
+		Devices_Info _Hub_Info(hid, hname);
 		DevicesList.push_front(_Hub_Info);
 
 		int  total_devices = DevicesListJsObj["TOTAL_DEVICES"].as<int>();
 		if (total_devices > 0) {
 			JsonArray& DevicesListJsArr = DevicesListJsObj["DEVICE_LIST"];
 			for (int i = 0; i < total_devices; i++) {
-				Devices_Info _Device_Info;
 				JsonObject& DeviceInfoJsObj = DevicesListJsArr[i];
-				_Device_Info.ID = DeviceInfoJsObj["DEVICE_ID"].asString();
-				_Device_Info.Name = DeviceInfoJsObj["DEVICE_NAME"].asString();
+				String did = DeviceInfoJsObj["DEVICE_ID"].asString();
+				String dname = DeviceInfoJsObj["DEVICE_NAME"].asString();
+				Devices_Info _Device_Info(did, dname);
 
 				DevicesList.push_back(_Device_Info);
 			}
@@ -976,26 +1134,33 @@ bool update_tray_list() {
 void setup()
 {
 	hardware_init();
+	lcd_init();
 
 	wifi_init();
-
-	lcd_print("WiFi connected", LINE3, MIDDLE);
-	lcd_print(WiFi.localIP().toString(), LINE4, MIDDLE);
-
 	updateTimeStamp();
+
 	mqtt_init();
+	lcd_print("WiFi connected", LINE2, MIDDLE);
+	lcd_print(WiFi.localIP().toString(), LINE3, MIDDLE);
 
 	lcd_showMainMenu();
 
 	if (update_tray_list()) {
 		int len = DevicesList.length();
 		Dprintf("DevicesList Length = %d\n", len);
-		for (int i = 0; i < 4; i++)
-		{
-			Devices_Info device_info = DevicesList.at(i);
-			lcd_print(device_info.Name, i, LEFT, 0);
-		}
+		//for (int i = 0; i < 4; i++)
+		//{
+		//	Devices_Info device_info = DevicesList.at(i);
+		//	lcd_print(device_info.Name, i, LEFT, 1);
+		//}
+		//lcd_select(0, 1);
+
+		LCD_Current_Frame.init(DevicesList.at(0), lcd_currsor_coordinate(0, 0));
+		LCD_Current_Frame.render();
 	}
+
+	RF.begin(RF_BAUDRATE);
+	RF.setTimeout(200);
 }
 
 void loop()
