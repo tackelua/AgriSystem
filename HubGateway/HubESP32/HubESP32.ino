@@ -11,7 +11,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _FIRMWARE_VERSION ("0.1.16" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.17" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -188,7 +188,9 @@ inline bool operator==(const Devices_Info& d1, const Devices_Info& d2) {
 }
 
 QList<Devices_Info> DevicesList;
-
+int DevicesList_length() {
+	return DevicesList.length() - 1;
+}
 //===============
 #pragma endregion
 
@@ -270,6 +272,9 @@ void hardware_init() {
 	Dprintf("\r\n\r\nHID=%s\r\n\r\n", HubID.c_str());
 	Dprintln(HubID);
 	Dprintln("Version: " + String(_FIRMWARE_VERSION));
+	Dprintln();
+	WiFi.printDiag(DEBUG);
+	Dprintln();
 }
 
 void upload_relay_hub_status() {
@@ -487,29 +492,31 @@ int button_read() {
 		}
 		if ((err == 0) && (last_button != pre[0])) {
 			if (last_button == BT_NOBUTTON) {
+				Dprintln();
 				switch (pre[0])
 				{
 				case BT_LEFT:
-					Dprintln(F("\r\nBT_LEFT"));
+					Dprint(F("BT_LEFT"));
 					break;
 				case BT_DOWN:
-					Dprintln(F("\r\nBT_DOWN"));
+					Dprint(F("BT_DOWN"));
 					break;
 				case BT_RIGHT:
-					Dprintln(F("\r\nBT_RIGHT"));
+					Dprint(F("BT_RIGHT"));
 					break;
 				case BT_UP:
-					Dprintln(F("\r\nBT_UP"));
+					Dprint(F("BT_UP"));
 					break;
 				case BT_BACK:
-					Dprintln(F("\r\nBT_BACK"));
+					Dprint(F("BT_BACK"));
 					break;
 				case BT_ENTER:
-					Dprintln(F("\r\nBT_ENTER"));
+					Dprint(F("BT_ENTER"));
 					break;
 				default:
 					break;
 				}
+				Dprint(" ");
 				for (int i = 0; i < total; i++) {
 					Dprint(pre[i]);
 					Dprint(" ");
@@ -965,6 +972,9 @@ public:
 	}
 	int col;
 	int row;
+	void print_detail(String name = "") {
+		Dprintf("%s(%d,%d)\r\n", name.c_str(), col, row);
+	}
 };
 
 //void lcd_print(String data, int line, int align = MIDDLE, int padding_left = 0);
@@ -980,7 +990,7 @@ public:
 		index_Device_Selected = DevicesList.indexOf(deviceSelected);
 	}
 	void select_next_device() {
-		if (index_Device_Selected < (DevicesList.length() - 1)) {
+		if (index_Device_Selected < DevicesList_length()) {
 			index_Device_Selected++;
 			Device_Selected = DevicesList.at(index_Device_Selected);
 			if (coordinate_symbol_device_selected.row < 3) {
@@ -1011,32 +1021,55 @@ public:
 		lcd_print(DevicesList.at(0).Name, LINE0, LEFT, 1); //HUB NAME
 
 		int pos_device_selected = DevicesList.indexOf(Device_Selected);
-		Dprintln("device selected  = " + String(pos_device_selected));
 		if (pos_device_selected >= 0) {
 			switch (coordinate_symbol_device_selected.row)
 			{
 			case 0:
-				lcd_print(DevicesList.at(pos_device_selected + 1).Name, LINE1, LEFT, 1);
-				lcd_print(DevicesList.at(pos_device_selected + 2).Name, LINE2, LEFT, 1);
-				lcd_print(DevicesList.at(pos_device_selected + 3).Name, LINE3, LEFT, 1);
+				if ((pos_device_selected + DevicesList_length()) >= 1) {
+					lcd_print(DevicesList.at(pos_device_selected + 1).Name, LINE1, LEFT, 1);
+					if ((pos_device_selected + DevicesList_length()) >= 2) {
+						lcd_print(DevicesList.at(pos_device_selected + 2).Name, LINE2, LEFT, 1);
+						if ((pos_device_selected + DevicesList_length()) >= 3) {
+							lcd_print(DevicesList.at(pos_device_selected + 3).Name, LINE3, LEFT, 1);
+						}
+					}
+				}
 				break;
 
 			case 1:
-				lcd_print(Device_Selected.Name, LINE1, LEFT, 1);
-				lcd_print(DevicesList.at(pos_device_selected + 1).Name, LINE2, LEFT, 1);
-				lcd_print(DevicesList.at(pos_device_selected + 2).Name, LINE3, LEFT, 1);
+				if ((pos_device_selected + DevicesList_length()) >= 1) {
+					lcd_print(Device_Selected.Name, LINE1, LEFT, 1);
+					if ((pos_device_selected + DevicesList_length()) >= 2) {
+						lcd_print(DevicesList.at(pos_device_selected + 1).Name, LINE2, LEFT, 1);
+						if ((pos_device_selected + DevicesList_length()) >= 3) {
+							lcd_print(DevicesList.at(pos_device_selected + 2).Name, LINE3, LEFT, 1);
+						}
+					}
+				}
 				break;
 
 			case 2:
-				lcd_print(DevicesList.at(pos_device_selected - 1).Name, LINE1, LEFT, 1);
-				lcd_print(Device_Selected.Name, LINE2, LEFT, 1);
-				lcd_print(DevicesList.at(pos_device_selected + 1).Name, LINE3, LEFT, 1);
+				if ((pos_device_selected + DevicesList_length()) >= 1) {
+					lcd_print(DevicesList.at(pos_device_selected - 1).Name, LINE1, LEFT, 1);
+					if ((pos_device_selected + DevicesList_length()) >= 2) {
+						lcd_print(Device_Selected.Name, LINE2, LEFT, 1);
+						if ((pos_device_selected + DevicesList_length()) >= 3) {
+							lcd_print(DevicesList.at(pos_device_selected + 1).Name, LINE3, LEFT, 1);
+						}
+					}
+				}
 				break;
 
 			case 3:
-				lcd_print(DevicesList.at(pos_device_selected - 2).Name, LINE1, LEFT, 1);
-				lcd_print(DevicesList.at(pos_device_selected - 1).Name, LINE2, LEFT, 1);
-				lcd_print(Device_Selected.Name, LINE3, LEFT, 1);
+				if ((pos_device_selected + DevicesList_length()) >= 1) {
+					lcd_print(DevicesList.at(pos_device_selected - 2).Name, LINE1, LEFT, 1);
+					if ((pos_device_selected + DevicesList_length()) >= 2) {
+						lcd_print(DevicesList.at(pos_device_selected - 1).Name, LINE2, LEFT, 1);
+						if ((pos_device_selected + DevicesList_length()) >= 3) {
+							lcd_print(Device_Selected.Name, LINE3, LEFT, 1);
+						}
+					}
+				}
 				break;
 
 			default:
@@ -1186,7 +1219,11 @@ void updateHubHardwareStatus(unsigned long interval = 5000) {
 	}
 }
 
-bool update_tray_list() {
+bool update_tray_list(bool force = false) {
+	static bool updateSuccess = false;
+	if ((!force) && updateSuccess) {
+		return true;
+	}
 
 	String _devices_List = http_request("mic.duytan.edu.vn", 88, "/api/GetAllHubDevices/HUB_ID=" + HubID);
 
@@ -1198,8 +1235,13 @@ bool update_tray_list() {
 		String hname = DevicesListJsObj[HUB_NAME].asString();
 		Devices_Info _Hub_Info(hid, hname);
 		DevicesList.push_front(_Hub_Info);
+		if (hid == "") {
+			return false;
+		}
 
 		int  total_devices = DevicesListJsObj["TOTAL_DEVICES"].as<int>();
+		Dprintf("TOTAL_DEVICES %d\r\n", total_devices);
+
 		if (total_devices > 0) {
 			JsonArray& DevicesListJsArr = DevicesListJsObj["DEVICE_LIST"];
 			for (int i = 0; i < total_devices; i++) {
@@ -1212,6 +1254,7 @@ bool update_tray_list() {
 				DevicesList.push_back(_Device_Info);
 			}
 		}
+		updateSuccess = true;
 		return true;
 	}
 	return false;
@@ -1234,18 +1277,15 @@ void setup()
 	lcd_showMainMenu();
 
 	if (update_tray_list()) {
-		//int len = DevicesList.length();
-		//Dprintf("DevicesList Length = %d\n", len);
-
-		//for (int i = 0; i < 4; i++)
-		//{
-		//	Devices_Info device_info = DevicesList.at(i);
-		//	lcd_print(device_info.Name, i, LEFT, 1);
-		//}
-		//lcd_select(0, 1);
-
+		Dprintln("DevicesList_length = " + String(DevicesList_length()));
 		LCD_Frame.Main_Menu.init(DevicesList.at(0), lcd_currsor_coordinate(0, 0));
 		LCD_Frame.Main_Menu.render();
+	}
+	else {
+		Dprintln("ERR#4353 No Hub on Server");
+		lcd.clear();
+		lcd_print("AGRISYSTEM-IoTLab", LINE0, MIDDLE , 0);
+		lcd_print(String("HID = ") + HubID, LINE2, MIDDLE , 0);
 	}
 
 	RF.begin(RF_BAUDRATE);
@@ -1265,11 +1305,11 @@ void loop()
 	IDLE
 		handle_serial();
 	IDLE
-		LCD_Frame.update_Frame();
+	LCD_Frame.update_Frame();
 	IDLE
 		lcd_showTime();
 	IDLE
-		if (DevicesList.length() == 0) {
-			update_tray_list();
-		}
+	if (DevicesList_length() == -1) {
+		update_tray_list();
+	}
 }
