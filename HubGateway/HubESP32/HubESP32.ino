@@ -11,7 +11,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _FIRMWARE_VERSION ("0.1.19" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.20" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -58,7 +58,7 @@ PubSubClient mqtt_client(mqtt_espClient);
 #define Rprint		RF.print
 #define Rprintln	RF.println
 #define Rprintf		RF.printf
-#define Rflush		RF.
+#define Rflush		RF.flush
 
 #define IDLE	delayMicroseconds(200);
 
@@ -155,13 +155,17 @@ enum DEVICE_TYPE {
 
 class Devices_Info {
 public:
-	String ID;
-	String Name;
-	DEVICE_TYPE Type;
+	String ID = "";
+	String Name = "";
+	DEVICE_TYPE Type = UNKNOWN;
 	Devices_Info(String id = "", String name = "") {
+		//!important
+		if ((id == "") && (name == "")) {
+			return;
+		}
 		ID = id;
 		Name = name;
-		switch (name.charAt(0))
+		switch (id.charAt(0))
 		{
 		case 'H':
 			Type = GARDEN_HUB;
@@ -178,7 +182,15 @@ public:
 		default:
 			break;
 		}
+		printDetails();
 	};
+	void printDetails() {
+		Dprintln("Devices_Info");
+		Dprintf("\tID\t=\t%s\r\n", ID.c_str());
+		Dprintf("\tName\t=\t%s\r\n", Name.c_str());
+		Dprintf("\tType\t=\t%d\r\n", (int)Type);
+		Dprintln();
+	}
 };
 inline bool operator==(const Devices_Info& d1, const Devices_Info& d2) {
 	return ((d1.Name == d2.Name) && (d1.ID == d2.ID));
@@ -472,7 +484,7 @@ int map_value_to_button(int val) {
 	return BT_NOBUTTON;
 }
 int button_read() {
-	static const int total = 20;
+	static const int total = 10;
 	static int pre[total];
 	static unsigned long t = millis();
 	static const unsigned long debound_time = 1;
@@ -958,6 +970,14 @@ void lcd_showTime(bool force = false) {
 		lcd_showTime(true);
 	}
 }
+void show_symbol_select(int col, int row) {
+	lcd.setCursor(col, row);
+	lcd.write(SB_SELECT);
+}
+void clear_symbol_select(int col, int row) {
+	lcd.setCursor(col, row);
+	lcd.print(' ');
+}
 
 
 
@@ -966,6 +986,7 @@ void lcd_showTime(bool force = false) {
 
 enum LCD_Pages {
 	LCD_PAGE_MAIN_MENU = 0,
+	LCD_PAGE_MAIN_MENU_EXPAND,
 	LCD_PAGE_SENSOR,
 	LCD_PAGE_CONTROL
 };
@@ -983,9 +1004,10 @@ public:
 };
 
 //void lcd_print(String data, int line, int align = MIDDLE, int padding_left = 0);
+
 class LCD_Frame_Main_Menu {
 public:
-	//Devices_Info Device_Selected;
+	bool isExpand = false;
 	int index_Device_Selected = 0;
 	lcd_currsor_coordinate coordinate_symbol_device_selected;
 
@@ -1005,14 +1027,6 @@ public:
 				}
 			}
 		}
-	}
-	void clear_symbol_select() {
-		lcd.setCursor(coordinate_symbol_device_selected.col, coordinate_symbol_device_selected.row);
-		lcd.print(' ');
-	}
-	void show_symbol_select() {
-		lcd.setCursor(coordinate_symbol_device_selected.col, coordinate_symbol_device_selected.row);
-		lcd.write(SB_SELECT);
 	}
 	void render() {
 		lcd.clear();
@@ -1081,20 +1095,53 @@ public:
 			default:
 				break;
 			}
+
+			show_symbol_select(coordinate_symbol_device_selected.col, coordinate_symbol_device_selected.row);
 		}
-		show_symbol_select();
+
 		lcd_showTime(true);
 	}
 
 	~LCD_Frame_Main_Menu() {
 		Dprintln("LCD_Frame_Main_Menu was destroyed");
-		clear_symbol_select();
+		clear_symbol_select(coordinate_symbol_device_selected.col, coordinate_symbol_device_selected.row);
 	}
-};
+} Main_Menu;
+
+class LCD_Frame_Menu_Expand {
+public:
+	void render() {
+		lcd.clear();
+		String HubName = DevicesList.at(0).Name;
+		HubName.toUpperCase();
+		//lcd_print(HubName, LINE0, LEFT, 3); //HUB NAME
+		lcd_print(String(Main_Menu.index_Device_Selected) + "." + DevicesList.at(Main_Menu.index_Device_Selected).Name, LINE0, LEFT, 1);
+		Dprintln("#Menu_Expand debug");
+		Dprintf("index_Device_Selected = %d\n", Main_Menu.index_Device_Selected);
+		Dprintf("Device_Selected.Type = %d\n", DevicesList.at(Main_Menu.index_Device_Selected).Type);
+		DevicesList.at(Main_Menu.index_Device_Selected).printDetails();
+
+		switch (DevicesList.at(Main_Menu.index_Device_Selected).Type)
+		{
+		case GARDEN_HUB:
+		case GARDEN_NODE:
+			lcd_print("Sensors", LINE1, LEFT, 4);
+			lcd_print("Control", LINE2, LEFT, 4);
+			show_symbol_select(2, 1);
+			break;
+		case ENVIROMENT_MONITOR:
+			break;
+		case TANK_CONTROLER:
+			break;
+		default:
+			break;
+		}
+	}
+} Menu_Expand;
 
 class LCD_Frame_Class {
 public:
-	LCD_Frame_Main_Menu Main_Menu;
+	//LCD_Frame_Main_Menu Main_Menu;
 	LCD_Pages current_page = LCD_PAGE_MAIN_MENU;
 
 	void update_Frame() {
@@ -1113,13 +1160,41 @@ public:
 					Main_Menu.select_next_device();
 					Main_Menu.render();
 					break;
-				case BT_RIGHT:
-					break;
 				case BT_UP:
 					Main_Menu.select_previous_device();
 					Main_Menu.render();
 					break;
 				case BT_BACK:
+					break;
+				case BT_RIGHT:
+				case BT_ENTER:
+					Main_Menu.isExpand = true;
+					current_page = LCD_PAGE_MAIN_MENU_EXPAND;
+					Menu_Expand.render();
+					break;
+				default:
+					break;
+				}
+				break;
+			case LCD_PAGE_MAIN_MENU_EXPAND:
+				switch (button)
+				{
+				case BT_NOBUTTON:
+					break;
+				case BT_DOWN:
+					clear_symbol_select(2, 1);
+					show_symbol_select(2, 2);
+					break;
+				case BT_RIGHT:
+					break;
+				case BT_UP:
+					clear_symbol_select(2, 2);
+					show_symbol_select(2, 1);
+					break;
+				case BT_LEFT:
+				case BT_BACK:
+					current_page = LCD_PAGE_MAIN_MENU;
+					Main_Menu.render();
 					break;
 				case BT_ENTER:
 					break;
@@ -1287,7 +1362,7 @@ void setup()
 	if (update_tray_list()) {
 		Dprintln("DevicesList_length = " + String(DevicesList.length()));
 		//LCD_Frame.Main_Menu.init(DevicesList.at(0), lcd_currsor_coordinate(0, 0));
-		LCD_Frame.Main_Menu.render();
+		Main_Menu.render();
 	}
 	else {
 		Dprintln("ERR#4353 No Hub on Server");
