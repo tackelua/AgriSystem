@@ -11,7 +11,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _FIRMWARE_VERSION ("0.1.18" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.19" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -19,8 +19,6 @@ LiquidCrystal_I2C lcd(0x3f, 20, 4);
 #define SB_SELECT	0 //symbol select
 byte SELECT[8] =
 {
-
-
 	B10000,
 	B11000,
 	B11100,
@@ -124,27 +122,29 @@ enum LINE {
 enum COMMAND_TYPE {
 	NO_COMMAND = 0, //phòng trường hợp ko có gì nó tự chuyển thành 0
 
-	CONTROL_GARDEN_HUB,
-	CONTROL_GARDEN_NODE,
-	CONTROL_ENVIROMENT_MONITOR,
-	CONTROL_TANK_CONTROLER,
+	CONTROL_GARDEN_HUB,							//no retain
+	CONTROL_GARDEN_NODE,						//no retain
+	CONTROL_ENVIROMENT_MONITOR,					//no retain
+	CONTROL_TANK_CONTROLER,						//no retain
 
-	GET_DATA_GARDEN_HUB,
-	GET_DATA_GARDEN_NODE,
-	GET_DATA_ENVIROMENT_MONITOR,
-	GET_DATA_TANK_CONTROLER,
+	GET_DATA_GARDEN_HUB,						//no retain
+	GET_DATA_GARDEN_NODE,						//no retain
+	GET_DATA_ENVIROMENT_MONITOR,				//no retain
+	GET_DATA_TANK_CONTROLER,					//no retain
 
-	UPDATE_DATA_GARDEN_HUB,
-	UPDATE_DATA_GARDEN_NODE,
-	UPDATE_DATA_ENVIROMENT_MONITOR,
-	UPDATE_DATA_TANK_CONTROLER,
+	UPDATE_DATA_GARDEN_HUB,						//with retain
+	UPDATE_DATA_GARDEN_NODE,					//with retain
+	UPDATE_DATA_ENVIROMENT_MONITOR,				//with retain
+	UPDATE_DATA_TANK_CONTROLER,					//with retain
 
-	UPDATE_HUB_HARDWARE_STATUS,
+	UPDATE_HUB_HARDWARE_STATUS,					//with retain
 	UPDATE_ACTION_LOGS,
 	LIBS_GARDEN_NODE,
 
-	NOTIFICATION
+	NOTIFICATION,
+	ADD_NEW_TRAY								//without retain
 };
+
 enum DEVICE_TYPE {
 	UNKNOWN = 0,
 	GARDEN_HUB,
@@ -152,6 +152,7 @@ enum DEVICE_TYPE {
 	ENVIROMENT_MONITOR,
 	TANK_CONTROLER
 };
+
 class Devices_Info {
 public:
 	String ID;
@@ -946,9 +947,9 @@ void lcd_showMainMenu() {
 void lcd_showTime(bool force = false) {
 	if (force) {
 		lcd.setCursor(17, 0);		lcd.print(dayShortStr(weekday()));
-		lcd.setCursor(18, 1);		lcd.print(hour() < 10 ? "0" + String(hour()) : String(hour()));
-		lcd.setCursor(18, 2);		lcd.print(minute() < 10 ? "0" + String(minute()) : String(minute()));
-		lcd.setCursor(18, 3);		lcd.print(second() < 10 ? "0" + String(second()) : String(second()));
+		lcd.setCursor(17, 1);		lcd.print(hour() < 10 ? " 0" + String(hour()) : " " + String(hour()));
+		lcd.setCursor(17, 2);		lcd.print(minute() < 10 ? " 0" + String(minute()) : " " + String(minute()));
+		lcd.setCursor(17, 3);		lcd.print(second() < 10 ? " 0" + String(second()) : " " + String(second()));
 		return;
 	}
 	static ulong t = millis();
@@ -998,13 +999,13 @@ public:
 	}
 	void select_previous_device() {
 		if (index_Device_Selected > 0) {
-			index_Device_Selected--;
-			if (coordinate_symbol_device_selected.row > 0) {
-				coordinate_symbol_device_selected.row--;
+			if (!((index_Device_Selected-- != 1) && (coordinate_symbol_device_selected.row == 1))) {
+				if (coordinate_symbol_device_selected.row > 0) {
+					coordinate_symbol_device_selected.row--;
+				}
 			}
 		}
 	}
-
 	void clear_symbol_select() {
 		lcd.setCursor(coordinate_symbol_device_selected.col, coordinate_symbol_device_selected.row);
 		lcd.print(' ');
@@ -1022,18 +1023,20 @@ public:
 			lcd_print("Please register!", LINE3, LEFT, 1);
 			return;
 		}
-		lcd_print(DevicesList.at(0).Name, LINE0, LEFT, 1); //HUB NAME
+		String HubName = DevicesList.at(0).Name;
+		HubName.toUpperCase();
+		lcd_print(HubName, LINE0, LEFT, 3); //HUB NAME
 
 		if (index_Device_Selected >= 0) {
 			switch (coordinate_symbol_device_selected.row)
 			{
 			case 0:
 				if ((DevicesList.length()) > 1) {
-					lcd_print(DevicesList.at(index_Device_Selected + 1).Name, LINE1, LEFT, 1);
+					lcd_print(String(index_Device_Selected + 1) + "." + DevicesList.at(index_Device_Selected + 1).Name, LINE1, LEFT, 1);
 					if ((DevicesList.length()) > 2) {
-						lcd_print(DevicesList.at(index_Device_Selected + 2).Name, LINE2, LEFT, 1);
+						lcd_print(String(index_Device_Selected + 2) + "." + DevicesList.at(index_Device_Selected + 2).Name, LINE2, LEFT, 1);
 						if ((DevicesList.length()) > 3) {
-							lcd_print(DevicesList.at(index_Device_Selected + 3).Name, LINE3, LEFT, 1);
+							lcd_print(String(index_Device_Selected + 3) + "." + DevicesList.at(index_Device_Selected + 3).Name, LINE3, LEFT, 1);
 						}
 					}
 				}
@@ -1041,11 +1044,11 @@ public:
 
 			case 1:
 				if ((DevicesList.length()) > 1) {
-					lcd_print(DevicesList.at(index_Device_Selected).Name, LINE1, LEFT, 1);
+					lcd_print(String(index_Device_Selected) + "." + DevicesList.at(index_Device_Selected).Name, LINE1, LEFT, 1);
 					if ((DevicesList.length()) > 2) {
-						lcd_print(DevicesList.at(index_Device_Selected + 1).Name, LINE2, LEFT, 1);
+						lcd_print(String(index_Device_Selected + 1) + "." + DevicesList.at(index_Device_Selected + 1).Name, LINE2, LEFT, 1);
 						if ((DevicesList.length()) > 3) {
-							lcd_print(DevicesList.at(index_Device_Selected + 2).Name, LINE3, LEFT, 1);
+							lcd_print(String(index_Device_Selected + 2) + "." + DevicesList.at(index_Device_Selected + 2).Name, LINE3, LEFT, 1);
 						}
 					}
 				}
@@ -1053,11 +1056,11 @@ public:
 
 			case 2:
 				if ((DevicesList.length()) > 1) {
-					lcd_print(DevicesList.at(index_Device_Selected - 1).Name, LINE1, LEFT, 1);
+					lcd_print(String(index_Device_Selected - 1) + "." + DevicesList.at(index_Device_Selected - 1).Name, LINE1, LEFT, 1);
 					if ((DevicesList.length()) > 2) {
-						lcd_print(DevicesList.at(index_Device_Selected).Name, LINE2, LEFT, 1);
+						lcd_print(String(index_Device_Selected) + "." + DevicesList.at(index_Device_Selected).Name, LINE2, LEFT, 1);
 						if ((DevicesList.length()) > 3) {
-							lcd_print(DevicesList.at(index_Device_Selected + 1).Name, LINE3, LEFT, 1);
+							lcd_print(String(index_Device_Selected + 1) + "." + DevicesList.at(index_Device_Selected + 1).Name, LINE3, LEFT, 1);
 						}
 					}
 				}
@@ -1065,11 +1068,11 @@ public:
 
 			case 3:
 				if ((DevicesList.length()) > 1) {
-					lcd_print(DevicesList.at(index_Device_Selected - 2).Name, LINE1, LEFT, 1);
+					lcd_print(String(index_Device_Selected - 2) + "." + DevicesList.at(index_Device_Selected - 2).Name, LINE1, LEFT, 1);
 					if ((DevicesList.length()) > 2) {
-						lcd_print(DevicesList.at(index_Device_Selected - 1).Name, LINE2, LEFT, 1);
+						lcd_print(String(index_Device_Selected - 1) + "." + DevicesList.at(index_Device_Selected - 1).Name, LINE2, LEFT, 1);
 						if ((DevicesList.length()) > 3) {
-							lcd_print(DevicesList.at(index_Device_Selected).Name, LINE3, LEFT, 1);
+							lcd_print(String(index_Device_Selected) + "." + DevicesList.at(index_Device_Selected).Name, LINE3, LEFT, 1);
 						}
 					}
 				}
@@ -1108,11 +1111,13 @@ public:
 					break;
 				case BT_DOWN:
 					Main_Menu.select_next_device();
+					Main_Menu.render();
 					break;
 				case BT_RIGHT:
 					break;
 				case BT_UP:
 					Main_Menu.select_previous_device();
+					Main_Menu.render();
 					break;
 				case BT_BACK:
 					break;
@@ -1121,7 +1126,6 @@ public:
 				default:
 					break;
 				}
-				Main_Menu.render();
 				break;
 			case LCD_PAGE_SENSOR:
 				break;
