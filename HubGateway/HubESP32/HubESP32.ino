@@ -11,7 +11,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _FIRMWARE_VERSION ("0.1.17" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.18" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -32,7 +32,7 @@ byte SELECT[8] =
 };
 
 String HubID;
-String MQTT_TOPIC_MAIN;
+String MQTT_TOPIC_MAIN;		//"AGRISYSTEM/" + HubID;
 
 String mqtt_Message;
 String rf_Message;
@@ -178,19 +178,15 @@ public:
 			break;
 		}
 	};
-
-	//những biến này phục vụ cho việc hiển thị trên LCD
-	bool isSelect = false;
-	int line = -1;
 };
 inline bool operator==(const Devices_Info& d1, const Devices_Info& d2) {
 	return ((d1.Name == d2.Name) && (d1.ID == d2.ID));
 }
 
-QList<Devices_Info> DevicesList;
-int DevicesList_length() {
-	return DevicesList.length() - 1;
-}
+QList<Devices_Info> DevicesList; //index 0 is Hub
+//int DevicesList_length() {
+//	return DevicesList.length() - 1;
+//}
 //===============
 #pragma endregion
 
@@ -231,12 +227,14 @@ void hardware_init() {
 	//RF.begin(RF_BAUDRATE);
 	//RF.setTimeout(200);
 
+	pinMode(LED_BUILTIN, OUTPUT);
 	pinMode(HPIN_LIGHT, OUTPUT);
 	pinMode(HPIN_FAN, OUTPUT);
 	pinMode(HPIN_SPRAY, OUTPUT);
 	pinMode(HPIN_COVER_OPEN, OUTPUT);
 	pinMode(HPIN_COVER_CLOSE, OUTPUT);
 	pinMode(HPIN_BUTTON, INPUT);
+
 	//Dprintln("LIGHT ON");  digitalWrite(HPIN_LIGHT, HIGH);							delay(500);
 	//Dprintln("LIGHT OFF"); digitalWrite(HPIN_LIGHT, LOW);							delay(500);
 	//																				delay(500);
@@ -476,7 +474,7 @@ int button_read() {
 	static const int total = 20;
 	static int pre[total];
 	static unsigned long t = millis();
-	static const unsigned long debound_time = 3;
+	static const unsigned long debound_time = 1;
 	static int last_button = BT_NOBUTTON;
 	if ((millis() - t) > debound_time) {
 		t = millis();
@@ -534,6 +532,41 @@ int button_read() {
 
 
 #pragma region WiFi Init
+void smart_config() {
+	digitalWrite(LED_BUILTIN, LOW);
+	bool sttled = false;
+	Dprintln(F("SmartConfig started."));
+	unsigned long t = millis();
+	WiFi.beginSmartConfig();
+	while (1) {
+		sttled = !sttled;
+		digitalWrite(LED_BUILTIN, sttled);
+		delay(200);
+		if (WiFi.smartConfigDone()) {
+			Dprintln(F("SmartConfig: Success"));
+			Dprint(F("RSSI: "));
+			Dprintln(WiFi.RSSI());
+			WiFi.printDiag(Serial);
+			//WiFi.stopSmartConfig();
+			break;
+		}
+
+		if ((millis() - t) > (3 * 60000)) {
+			Dprintln(F("ESP restart"));
+			ESP.restart();
+		}
+	}
+	if (WiFi.waitForConnectResult() == WL_CONNECTED)
+	{
+		Dprintln(F("connected\n"));
+	}
+	else {
+		smart_config();
+	}
+	digitalWrite(LED_BUILTIN, HIGH);
+	Dprint(F("IP: "));
+	Dprintln(WiFi.localIP());
+}
 void wifi_init() {
 	Dprintln(F("\r\nConnecting to WiFi"));
 	if (WiFi.isConnected()) {
@@ -556,49 +589,26 @@ void wifi_init() {
 
 	return;
 
+	//============================================================
 	WiFi.setAutoConnect(true);
 	WiFi.setAutoReconnect(true);
 	WiFi.mode(WIFI_STA);
 
-	//Serial.println(F("SmartConfig started."));
-	//WiFi.beginSmartConfig();
-	//while (1) {
-	//	delay(1000);
-	//	if (WiFi.smartConfigDone()) {
-	//		Serial.println(F("SmartConfig: Success"));
-	//		WiFi.printDiag(Serial);
-	//		//WiFi.stopSmartConfig();
-	//		break;
-	//	}
-	//}
+	String WiFiDiag;
+	WiFi.printDiag((Print&)WiFiDiag);
 
-	WiFi.printDiag(Serial);
+	Dprintln(WiFiDiag);
 	Dprintln(F("\nConnecting..."));
 
 	if (WiFi.waitForConnectResult() == WL_CONNECTED)
 	{
+		digitalWrite(LED_BUILTIN, HIGH);
 		Dprintln(F("connected\n"));
+		Dprintln(WiFi.localIP());
 	}
 	else
 	{
-		Dprintln(F("connect again\n"));
-		if (WiFi.waitForConnectResult() == WL_CONNECTED)
-		{
-			Dprintln(F("connected\n"));
-			return;
-		}
-
-		Dprintln(F("SmartConfig started."));
-		WiFi.beginSmartConfig();
-		while (1) {
-			delay(500);
-			if (WiFi.smartConfigDone()) {
-				Dprintln(F("SmartConfig: Success"));
-				WiFi.printDiag(Serial);
-				//WiFi.stopSmartConfig();
-				break;
-			}
-		}
+		smart_config();
 	}
 }
 #pragma endregion
@@ -803,6 +813,8 @@ void mqtt_reconnect() {  // Loop until we're reconnected
 			mqtt_client.subscribe((MQTT_TOPIC_MAIN + "/" REQUEST "/#").c_str());
 			String libs = MQTT_TOPIC_MAIN + "/LIBS/#";
 			mqtt_client.subscribe(libs.c_str());
+			String notify = MQTT_TOPIC_MAIN + "/NOTIFY/HUB";
+			mqtt_client.subscribe(notify.c_str());
 		}
 		else {
 			if ((millis() - t) > 120000) {
@@ -934,23 +946,15 @@ void lcd_showMainMenu() {
 void lcd_showTime(bool force = false) {
 	if (force) {
 		lcd.setCursor(17, 0);		lcd.print(dayShortStr(weekday()));
-		lcd.setCursor(18, 1);		lcd.print(hour());
-		lcd.setCursor(18, 2);		lcd.print(minute());
-		lcd.setCursor(18, 3);		lcd.print(second());
+		lcd.setCursor(18, 1);		lcd.print(hour() < 10 ? "0" + String(hour()) : String(hour()));
+		lcd.setCursor(18, 2);		lcd.print(minute() < 10 ? "0" + String(minute()) : String(minute()));
+		lcd.setCursor(18, 3);		lcd.print(second() < 10 ? "0" + String(second()) : String(second()));
+		return;
 	}
 	static ulong t = millis();
 	if ((millis() - t) >= 1000) {
 		t = millis();
-		//String time = getTimeString();
-		//lcd.setCursor(12, 0);
-		//lcd.print(time);
-
-		//Dprintf("\r\nFREE HEAP = %d\r\n", ESP.getFreeHeap());
-
-		lcd.setCursor(17, 0);		lcd.print(dayShortStr(weekday()));
-		lcd.setCursor(18, 1);		lcd.print(hour());
-		lcd.setCursor(18, 2);		lcd.print(minute());
-		lcd.setCursor(18, 3);		lcd.print(second());
+		lcd_showTime(true);
 	}
 }
 
@@ -980,19 +984,13 @@ public:
 //void lcd_print(String data, int line, int align = MIDDLE, int padding_left = 0);
 class LCD_Frame_Main_Menu {
 public:
-	Devices_Info Device_Selected;
-	int index_Device_Selected;
+	//Devices_Info Device_Selected;
+	int index_Device_Selected = 0;
 	lcd_currsor_coordinate coordinate_symbol_device_selected;
 
-	void init(Devices_Info deviceSelected, lcd_currsor_coordinate currsor_coordinate) {
-		Device_Selected = deviceSelected;
-		coordinate_symbol_device_selected = currsor_coordinate;
-		index_Device_Selected = DevicesList.indexOf(deviceSelected);
-	}
 	void select_next_device() {
-		if (index_Device_Selected < DevicesList_length()) {
+		if (index_Device_Selected < (DevicesList.length() - 1)) {
 			index_Device_Selected++;
-			Device_Selected = DevicesList.at(index_Device_Selected);
 			if (coordinate_symbol_device_selected.row < 3) {
 				coordinate_symbol_device_selected.row++;
 			}
@@ -1001,7 +999,6 @@ public:
 	void select_previous_device() {
 		if (index_Device_Selected > 0) {
 			index_Device_Selected--;
-			Device_Selected = DevicesList.at(index_Device_Selected);
 			if (coordinate_symbol_device_selected.row > 0) {
 				coordinate_symbol_device_selected.row--;
 			}
@@ -1018,55 +1015,61 @@ public:
 	}
 	void render() {
 		lcd.clear();
+		if (DevicesList.at(0).ID == "") {
+			lcd_print("Can not found", LINE0, LEFT, 1);
+			lcd_print("HUB ID:  " + HubID, LINE1, LEFT, 1);
+			lcd_print("ON SERVER.", LINE2, LEFT, 1);
+			lcd_print("Please register!", LINE3, LEFT, 1);
+			return;
+		}
 		lcd_print(DevicesList.at(0).Name, LINE0, LEFT, 1); //HUB NAME
 
-		int pos_device_selected = DevicesList.indexOf(Device_Selected);
-		if (pos_device_selected >= 0) {
+		if (index_Device_Selected >= 0) {
 			switch (coordinate_symbol_device_selected.row)
 			{
 			case 0:
-				if ((pos_device_selected + DevicesList_length()) >= 1) {
-					lcd_print(DevicesList.at(pos_device_selected + 1).Name, LINE1, LEFT, 1);
-					if ((pos_device_selected + DevicesList_length()) >= 2) {
-						lcd_print(DevicesList.at(pos_device_selected + 2).Name, LINE2, LEFT, 1);
-						if ((pos_device_selected + DevicesList_length()) >= 3) {
-							lcd_print(DevicesList.at(pos_device_selected + 3).Name, LINE3, LEFT, 1);
+				if ((DevicesList.length()) > 1) {
+					lcd_print(DevicesList.at(index_Device_Selected + 1).Name, LINE1, LEFT, 1);
+					if ((DevicesList.length()) > 2) {
+						lcd_print(DevicesList.at(index_Device_Selected + 2).Name, LINE2, LEFT, 1);
+						if ((DevicesList.length()) > 3) {
+							lcd_print(DevicesList.at(index_Device_Selected + 3).Name, LINE3, LEFT, 1);
 						}
 					}
 				}
 				break;
 
 			case 1:
-				if ((pos_device_selected + DevicesList_length()) >= 1) {
-					lcd_print(Device_Selected.Name, LINE1, LEFT, 1);
-					if ((pos_device_selected + DevicesList_length()) >= 2) {
-						lcd_print(DevicesList.at(pos_device_selected + 1).Name, LINE2, LEFT, 1);
-						if ((pos_device_selected + DevicesList_length()) >= 3) {
-							lcd_print(DevicesList.at(pos_device_selected + 2).Name, LINE3, LEFT, 1);
+				if ((DevicesList.length()) > 1) {
+					lcd_print(DevicesList.at(index_Device_Selected).Name, LINE1, LEFT, 1);
+					if ((DevicesList.length()) > 2) {
+						lcd_print(DevicesList.at(index_Device_Selected + 1).Name, LINE2, LEFT, 1);
+						if ((DevicesList.length()) > 3) {
+							lcd_print(DevicesList.at(index_Device_Selected + 2).Name, LINE3, LEFT, 1);
 						}
 					}
 				}
 				break;
 
 			case 2:
-				if ((pos_device_selected + DevicesList_length()) >= 1) {
-					lcd_print(DevicesList.at(pos_device_selected - 1).Name, LINE1, LEFT, 1);
-					if ((pos_device_selected + DevicesList_length()) >= 2) {
-						lcd_print(Device_Selected.Name, LINE2, LEFT, 1);
-						if ((pos_device_selected + DevicesList_length()) >= 3) {
-							lcd_print(DevicesList.at(pos_device_selected + 1).Name, LINE3, LEFT, 1);
+				if ((DevicesList.length()) > 1) {
+					lcd_print(DevicesList.at(index_Device_Selected - 1).Name, LINE1, LEFT, 1);
+					if ((DevicesList.length()) > 2) {
+						lcd_print(DevicesList.at(index_Device_Selected).Name, LINE2, LEFT, 1);
+						if ((DevicesList.length()) > 3) {
+							lcd_print(DevicesList.at(index_Device_Selected + 1).Name, LINE3, LEFT, 1);
 						}
 					}
 				}
 				break;
 
 			case 3:
-				if ((pos_device_selected + DevicesList_length()) >= 1) {
-					lcd_print(DevicesList.at(pos_device_selected - 2).Name, LINE1, LEFT, 1);
-					if ((pos_device_selected + DevicesList_length()) >= 2) {
-						lcd_print(DevicesList.at(pos_device_selected - 1).Name, LINE2, LEFT, 1);
-						if ((pos_device_selected + DevicesList_length()) >= 3) {
-							lcd_print(Device_Selected.Name, LINE3, LEFT, 1);
+				if ((DevicesList.length()) > 1) {
+					lcd_print(DevicesList.at(index_Device_Selected - 2).Name, LINE1, LEFT, 1);
+					if ((DevicesList.length()) > 2) {
+						lcd_print(DevicesList.at(index_Device_Selected - 1).Name, LINE2, LEFT, 1);
+						if ((DevicesList.length()) > 3) {
+							lcd_print(DevicesList.at(index_Device_Selected).Name, LINE3, LEFT, 1);
 						}
 					}
 				}
@@ -1264,6 +1267,7 @@ bool update_tray_list(bool force = false) {
 
 void setup()
 {
+	delay(1000);
 	hardware_init();
 	lcd_init();
 
@@ -1277,15 +1281,15 @@ void setup()
 	lcd_showMainMenu();
 
 	if (update_tray_list()) {
-		Dprintln("DevicesList_length = " + String(DevicesList_length()));
-		LCD_Frame.Main_Menu.init(DevicesList.at(0), lcd_currsor_coordinate(0, 0));
+		Dprintln("DevicesList_length = " + String(DevicesList.length()));
+		//LCD_Frame.Main_Menu.init(DevicesList.at(0), lcd_currsor_coordinate(0, 0));
 		LCD_Frame.Main_Menu.render();
 	}
 	else {
 		Dprintln("ERR#4353 No Hub on Server");
 		lcd.clear();
-		lcd_print("AGRISYSTEM-IoTLab", LINE0, MIDDLE , 0);
-		lcd_print(String("HID = ") + HubID, LINE2, MIDDLE , 0);
+		lcd_print("AGRISYSTEM-IoTLab", LINE0, MIDDLE, 0);
+		lcd_print(String("HID = ") + HubID, LINE2, MIDDLE, 0);
 	}
 
 	RF.begin(RF_BAUDRATE);
@@ -1305,11 +1309,11 @@ void loop()
 	IDLE
 		handle_serial();
 	IDLE
-	LCD_Frame.update_Frame();
+		LCD_Frame.update_Frame();
 	IDLE
 		lcd_showTime();
 	IDLE
-	if (DevicesList_length() == -1) {
-		update_tray_list();
-	}
+		if (DevicesList.length() == 0) {
+			update_tray_list();
+		}
 }

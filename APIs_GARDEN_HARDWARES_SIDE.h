@@ -1,7 +1,10 @@
 ﻿#define IGNORE_THIS_FILE
 #ifndef IGNORE_THIS_FILE
 
-#define API_VERSION  "0.1.13"
+#define API_VERSION  "0.1.14"
+/*
+	v0.1.14	add COMMAND_TYPE::ADD_NEW_TRAY
+*/
 
 //======================================================================================================================================
 
@@ -49,7 +52,8 @@ enum COMMAND_TYPE {
 	UPDATE_ACTION_LOGS,
 	LIBS_GARDEN_NODE,
 
-	NOTIFICATION
+	NOTIFICATION,
+	ADD_NEW_TRAY								//without retain
 };
 
 enum NODE_TYPE {
@@ -422,8 +426,9 @@ Topic: "AGRISYSTEM/<HubID>/LOGS"
 
 
 #region NOTIFICATION
-Topic : "AGRISYSTEM/<HubID>/NOTIFY"
-{
+HUB -> SERVER
+Topic : "AGRISYSTEM/<HubID>/NOTIFY/HUB"
+	{
 		"MES_ID"		: "",
 		"HUB_ID"		: "<HubID>",
 		"SOURCE"		: "<DeviceID>",
@@ -431,6 +436,17 @@ Topic : "AGRISYSTEM/<HubID>/NOTIFY"
 		"TIMESTAMP"		: "155555555555555", //DEVICE gửi lên có thể ko cần trường này, HUB sẽ tự thêm
 		"CMD_T":		: COMMAND_TYPE::NOTIFICATION,
 		"NOTI_T"		: NOTIFICATION_TYPE
+	}
+
+APP -> HUB
+Topic: "AGRISYSTEM/<HubID>/NOTIFY/APP"
+	{
+		"MES_ID"		: "",
+		"HUB_ID"		: "<HubID>",
+		"SOURCE"		: "SERVER",
+		"DEST"			: "<HubID>",
+		"TIMESTAMP"		: "155555555555555", //DEVICE gửi lên có thể ko cần trường này, HUB sẽ tự thêm
+		"CMD_T"			: COMMAND_TYPE::ADD_NEW_TRAY
 	}
 #end region
 
