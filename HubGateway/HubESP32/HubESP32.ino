@@ -11,7 +11,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _FIRMWARE_VERSION ("0.1.20" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.21" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -184,7 +184,7 @@ public:
 		}
 		printDetails();
 	};
-	void printDetails() {
+	void printDetails(Print& source = DEBUG) {
 		Dprintln("Devices_Info");
 		Dprintf("\tID\t=\t%s\r\n", ID.c_str());
 		Dprintf("\tName\t=\t%s\r\n", Name.c_str());
@@ -288,7 +288,485 @@ void hardware_init() {
 	Dprintln();
 }
 
+
+#pragma region LCD
+
+enum LCD_Pages {
+	LCD_PAGE_MAIN_MENU = 0,
+	LCD_PAGE_DETAIL_HUB,
+	LCD_PAGE_DETAIL_NODE,
+	LCD_PAGE_DETAIL_ENVI,
+	LCD_PAGE_DETAIL_TANK
+};
+
+void lcd_print(String data, int line, int align = MIDDLE, int padding_left = 0) {
+	if (line >= 4) { return; }
+	String data_fullLine;
+	int numSpace = 0;
+	switch (align)
+	{
+	case LEFT:
+		data_fullLine = data;
+		numSpace = 20 - data.length();
+		for (int i = 0; i < numSpace; i++)
+		{
+			data_fullLine += " ";
+		}
+		break;
+	case MIDDLE:
+		numSpace = (20 - data.length()) / 2;
+		for (int i = 0; i < numSpace; i++)
+		{
+			data_fullLine += " ";
+		}
+		data_fullLine += data;
+		for (int i = 0; i < numSpace; i++)
+		{
+			data_fullLine += " ";
+		}
+		break;
+	case RIGHT:
+		numSpace = 20 - data.length();
+		for (int i = 0; i < numSpace; i++)
+		{
+			data_fullLine += " ";
+		}
+		data_fullLine += data;
+		break;
+	default:
+		break;
+	}
+	for (int i = 0; i < padding_left; i++)
+	{
+		data_fullLine = " " + data_fullLine;
+	}
+
+	if (line < 4) {
+		if ((data_fullLine.length() + padding_left) > 20) {
+			data_fullLine = data_fullLine.substring(0, 20);
+		}
+		lcd.setCursor(0, line);
+		lcd.print(data_fullLine);
+	}
+}
+
+void lcd_init() {
+	lcd.begin(21, 22);
+	lcd.createChar(SB_SELECT, SELECT);
+	lcd.backlight();
+	lcd_print("AGRISYSTEM/" + HubID, LINE0, MIDDLE);
+	lcd_print("IoT Labs - MIC@DTU", LINE1, MIDDLE);
+	lcd_print("Starting", LINE2, MIDDLE);
+}
+
+void lcd_select(int col, int row) {
+	static int old_col;
+	static int old_row;
+
+	lcd.setCursor(old_col, old_row);
+	lcd.print(' ');
+
+	old_col = col;
+	old_row = row;
+
+	lcd.setCursor(col, row);
+	lcd.write(SB_SELECT);
+}
+
+void lcd_showMainMenu() {
+	lcd.clear();
+	lcd_print("HUB STATUS", LINE0, LEFT, 1);
+	lcd_print("NODE ID 1", LINE1, LEFT, 1);
+	lcd_print("NODE ID 2NODE ID 2NODE ID 2NODE ID 2", LINE2, LEFT, 1);
+	//lcd_print("Vườn hoa sữa", LINE3, LEFT, 1);
+
+}
+
+void lcd_showTime(bool force = false) {
+	if (force) {
+		lcd.setCursor(17, 0);		lcd.print(dayShortStr(weekday()));
+		lcd.setCursor(17, 1);		lcd.print(hour() < 10 ? " 0" + String(hour()) : " " + String(hour()));
+		lcd.setCursor(17, 2);		lcd.print(minute() < 10 ? " 0" + String(minute()) : " " + String(minute()));
+		lcd.setCursor(17, 3);		lcd.print(second() < 10 ? " 0" + String(second()) : " " + String(second()));
+		return;
+	}
+	static ulong t = millis();
+	if ((millis() - t) >= 1000) {
+		t = millis();
+		lcd_showTime(true);
+	}
+}
+void show_symbol_select(int col, int row) {
+	lcd.setCursor(col, row);
+	lcd.write(SB_SELECT);
+}
+void clear_symbol_select(int col, int row) {
+	lcd.setCursor(col, row);
+	lcd.print(' ');
+}
+
+
+#pragma region Classes for LCD
+//void lcd_showTime(bool force = false);
+class lcd_currsor_coordinate {
+public:
+	int col = 0;
+	int row = 0;
+	lcd_currsor_coordinate(int _col = -1, int _row = -1) {
+		if ((_col != -1) && (_row != -1)) {
+			col = _col;
+			row = _row;
+		}
+	}
+	void print_detail(String name = "") {
+		Dprintf("%s(%d,%d)\r\n", name.c_str(), col, row);
+	}
+};
+
+//void lcd_print(String data, int line, int align = MIDDLE, int padding_left = 0);
+
+class LCD_Frame_Main_Menu {
+public:
+	bool isExpand = false;
+	int index_Device_Selected = 0;
+	lcd_currsor_coordinate coordinate_symbol_device_selected;
+
+	void select_next_device() {
+		if (index_Device_Selected < (DevicesList.length() - 1)) {
+			index_Device_Selected++;
+			if (coordinate_symbol_device_selected.row < 3) {
+				coordinate_symbol_device_selected.row++;
+			}
+		}
+	}
+	void select_previous_device() {
+		if (index_Device_Selected > 0) {
+			if (!((index_Device_Selected-- != 1) && (coordinate_symbol_device_selected.row == 1))) {
+				if (coordinate_symbol_device_selected.row > 0) {
+					coordinate_symbol_device_selected.row--;
+				}
+			}
+		}
+	}
+	void render() {
+		lcd.clear();
+		if (DevicesList.at(0).ID == "") {
+			lcd_print("Can not found", LINE0, LEFT, 1);
+			lcd_print("HUB ID:  " + HubID, LINE1, LEFT, 1);
+			lcd_print("ON SERVER.", LINE2, LEFT, 1);
+			lcd_print("Please register!", LINE3, LEFT, 1);
+			return;
+		}
+		String HubName = DevicesList.at(0).Name;
+		HubName.toUpperCase();
+		lcd_print(HubName, LINE0, LEFT, 3); //HUB NAME
+
+		if (index_Device_Selected >= 0) {
+			switch (coordinate_symbol_device_selected.row)
+			{
+			case 0:
+				if ((DevicesList.length()) > 1) {
+					lcd_print(String(index_Device_Selected + 1) + "." + DevicesList.at(index_Device_Selected + 1).Name, LINE1, LEFT, 1);
+					if ((DevicesList.length()) > 2) {
+						lcd_print(String(index_Device_Selected + 2) + "." + DevicesList.at(index_Device_Selected + 2).Name, LINE2, LEFT, 1);
+						if ((DevicesList.length()) > 3) {
+							lcd_print(String(index_Device_Selected + 3) + "." + DevicesList.at(index_Device_Selected + 3).Name, LINE3, LEFT, 1);
+						}
+					}
+				}
+				break;
+
+			case 1:
+				if ((DevicesList.length()) > 1) {
+					lcd_print(String(index_Device_Selected) + "." + DevicesList.at(index_Device_Selected).Name, LINE1, LEFT, 1);
+					if ((DevicesList.length()) > 2) {
+						lcd_print(String(index_Device_Selected + 1) + "." + DevicesList.at(index_Device_Selected + 1).Name, LINE2, LEFT, 1);
+						if ((DevicesList.length()) > 3) {
+							lcd_print(String(index_Device_Selected + 2) + "." + DevicesList.at(index_Device_Selected + 2).Name, LINE3, LEFT, 1);
+						}
+					}
+				}
+				break;
+
+			case 2:
+				if ((DevicesList.length()) > 1) {
+					lcd_print(String(index_Device_Selected - 1) + "." + DevicesList.at(index_Device_Selected - 1).Name, LINE1, LEFT, 1);
+					if ((DevicesList.length()) > 2) {
+						lcd_print(String(index_Device_Selected) + "." + DevicesList.at(index_Device_Selected).Name, LINE2, LEFT, 1);
+						if ((DevicesList.length()) > 3) {
+							lcd_print(String(index_Device_Selected + 1) + "." + DevicesList.at(index_Device_Selected + 1).Name, LINE3, LEFT, 1);
+						}
+					}
+				}
+				break;
+
+			case 3:
+				if ((DevicesList.length()) > 1) {
+					lcd_print(String(index_Device_Selected - 2) + "." + DevicesList.at(index_Device_Selected - 2).Name, LINE1, LEFT, 1);
+					if ((DevicesList.length()) > 2) {
+						lcd_print(String(index_Device_Selected - 1) + "." + DevicesList.at(index_Device_Selected - 1).Name, LINE2, LEFT, 1);
+						if ((DevicesList.length()) > 3) {
+							lcd_print(String(index_Device_Selected) + "." + DevicesList.at(index_Device_Selected).Name, LINE3, LEFT, 1);
+						}
+					}
+				}
+				break;
+
+			default:
+				break;
+			}
+
+			show_symbol_select(coordinate_symbol_device_selected.col, coordinate_symbol_device_selected.row);
+		}
+
+		lcd_showTime(true);
+	}
+} Main_Menu;
+
+class LCD_Frame_Detail_Hub {
+public:
+	int cursor_select = LINE0;
+	void render() {
+		lcd.clear();
+
+		switch (DevicesList.at(Main_Menu.index_Device_Selected).Type)
+		{
+		case GARDEN_HUB:
+			lcd_print("LIGHT  " + String(STT_LIGHT == STT_ON ? ON : OFF), LINE0, LEFT, 1);
+			lcd_print("FAN    " + String(STT_FAN == STT_ON ? ON : OFF), LINE1, LEFT, 1);
+			lcd_print("SPRAY  " + String(STT_SPRAY == STT_ON ? ON : OFF), LINE2, LEFT, 1);
+			lcd_print("COVER  " + String(STT_COVER == STT_ON ? ON : OFF), LINE3, LEFT, 1);
+			show_symbol_select(0, cursor_select);
+			break;
+		case GARDEN_NODE:
+		case ENVIROMENT_MONITOR:
+			break;
+		case TANK_CONTROLER:
+			break;
+		default:
+			break;
+		}
+
+		lcd_showTime(true);
+	}
+} Detail_Hub;
+
+class LCD_Frame_Detail_Node {
+public:
+	void render() {
+		lcd.clear();
+		lcd_showTime(true);
+	}
+} Detail_Node;
+
+class LCD_Frame_Detail_Envi {
+public:
+	void render() {
+		lcd.clear();
+		lcd_showTime(true);
+	}
+} Detail_Envi;
+
+class LCD_Frame_Detail_Tank {
+public:
+	void render() {
+		lcd.clear();
+		lcd_showTime(true);
+	}
+} Detail_Tank;
+
+class LCD_Frame_Class {
+public:
+	//LCD_Frame_Main_Menu Main_Menu;
+	LCD_Pages current_page = LCD_PAGE_MAIN_MENU;
+
+	void update_Frame() {
+		int button = button_read();
+		if (button > 0) {
+			switch (current_page)
+			{
+			case LCD_PAGE_MAIN_MENU:
+				switch (button)
+				{
+				case BT_NOBUTTON:
+					break;
+				case BT_DOWN:
+					Main_Menu.select_next_device();
+					Main_Menu.render();
+					break;
+				case BT_UP:
+					Main_Menu.select_previous_device();
+					Main_Menu.render();
+					break;
+				case BT_LEFT:
+				case BT_BACK:
+					break;
+				case BT_RIGHT:
+				case BT_ENTER:
+					switch (DevicesList.at(Main_Menu.index_Device_Selected).Type)
+					{
+					case UNKNOWN:
+						break;
+					case GARDEN_HUB:
+						current_page = LCD_PAGE_DETAIL_HUB;
+						Detail_Hub.render();
+						break;
+					case GARDEN_NODE:
+						current_page = LCD_PAGE_DETAIL_NODE;
+						Detail_Node.render();
+						break;
+					case ENVIROMENT_MONITOR:
+						current_page = LCD_PAGE_DETAIL_ENVI;
+						Detail_Envi.render();
+						break;
+					case TANK_CONTROLER:
+						current_page = LCD_PAGE_DETAIL_TANK;
+						Detail_Tank.render();
+						break;
+					default:
+						break;
+					}
+
+					break;
+				default:
+					break;
+				}
+				break;
+			case LCD_PAGE_DETAIL_HUB:
+				switch (button)
+				{
+				case BT_NOBUTTON:
+					break;
+				case BT_DOWN:
+					if (Detail_Hub.cursor_select < LINE3) {
+						Detail_Hub.cursor_select++;
+					}
+					Detail_Hub.render();
+					break;
+
+				case BT_UP:
+					if (Detail_Hub.cursor_select > LINE0) {
+						Detail_Hub.cursor_select--;
+					}
+					Detail_Hub.render();
+					break;
+
+				case BT_LEFT:
+				case BT_BACK:
+					current_page = LCD_PAGE_MAIN_MENU;
+					Main_Menu.render();
+					break;
+				case BT_RIGHT:
+				case BT_ENTER:
+					extern void control_relay_hub(int HPIN, String STT, bool publish = false, bool isAppControl = true);
+					switch (Detail_Hub.cursor_select)
+					{
+					case LINE0: //LIGHT
+						STT_LIGHT = abs(1 - STT_LIGHT); //toggle
+						control_relay_hub(HPIN_LIGHT, STT_LIGHT == STT_ON ? ON : OFF, false, false);
+						break;
+					case LINE1: //FAN
+						STT_FAN = abs(1 - STT_FAN); //toggle
+						control_relay_hub(HPIN_FAN, STT_FAN == STT_ON ? ON : OFF, false, false);
+						break;
+					case LINE2: //SPRAY
+						STT_SPRAY = abs(1 - STT_SPRAY); //toggle
+						control_relay_hub(HPIN_SPRAY, STT_SPRAY == STT_ON ? ON : OFF, false, false);
+						break;
+					case LINE3: //COVER
+						STT_COVER = abs(1 - STT_COVER); //toggle
+						control_relay_hub(HPIN_COVER, STT_COVER == STT_ON ? ON : OFF, false, false);
+						break;
+					default:
+						break;
+					}
+					upload_relay_hub_status();
+					//no need Detail_Hub.render. Render in upload_relay_hub_status()
+					break;
+				default:
+					break;
+				}
+				break;
+			case LCD_PAGE_DETAIL_NODE:
+				switch (button)
+				{
+				case BT_NOBUTTON:
+					break;
+				case BT_DOWN:
+					break;
+				case BT_UP:
+					break;
+				case BT_LEFT:
+					break;
+				case BT_BACK:
+					current_page = LCD_PAGE_MAIN_MENU;
+					Main_Menu.render();
+					break;
+				case BT_RIGHT:
+				case BT_ENTER:
+					break;
+				default:
+					break;
+				}
+				break;
+			case LCD_PAGE_DETAIL_ENVI:
+				switch (button)
+				{
+				case BT_NOBUTTON:
+					break;
+				case BT_DOWN:
+					break;
+				case BT_UP:
+					break;
+				case BT_LEFT:
+					break;
+				case BT_BACK:
+					current_page = LCD_PAGE_MAIN_MENU;
+					Main_Menu.render();
+					break;
+				case BT_RIGHT:
+				case BT_ENTER:
+					break;
+				default:
+					break;
+				}
+				break;
+			case LCD_PAGE_DETAIL_TANK:
+				switch (button)
+				{
+				case BT_NOBUTTON:
+					break;
+				case BT_DOWN:
+					break;
+				case BT_UP:
+					break;
+				case BT_LEFT:
+					break;
+				case BT_BACK:
+					current_page = LCD_PAGE_MAIN_MENU;
+					Main_Menu.render();
+					break;
+				case BT_RIGHT:
+				case BT_ENTER:
+					break;
+				default:
+					break;
+				}
+				break;
+			}
+		}
+	}
+} LCD_Frame;
+#pragma endregion
+
+#pragma endregion
+
+
 void upload_relay_hub_status() {
+	if (LCD_Frame.current_page == LCD_PAGE_DETAIL_HUB) {
+		Detail_Hub.render();
+	}
+
 	DynamicJsonBuffer jsBufferRelayHub(500);
 	JsonObject& jsDataRelayHub = jsBufferRelayHub.createObject();
 
@@ -327,43 +805,43 @@ void upload_relay_changelogs(String action_name, bool isAppControl = true) {
 	mqtt_publish(MQTT_TOPIC_MAIN + "/LOGS", dataRelayChangelog, true);
 }
 
-void control_relay_hub(int HPIN, String STT, bool publish = false) {
+void control_relay_hub(int HPIN, String STT, bool publish = false, bool isAppControl = true) {
 	Dprintf("Turn pin %d %s\r\n", HPIN, STT == ON ? "on" : "off");
 
 	if (HPIN == HPIN_LIGHT) {
 		if (STT == ON) {
 			STT_LIGHT = STT_ON;
 			digitalWrite(HPIN, true);
-			upload_relay_changelogs("LIGHT ON");
+			upload_relay_changelogs("LIGHT ON", isAppControl);
 		}
 		else if (STT == OFF) {
 			STT_LIGHT = STT_OFF;
 			digitalWrite(HPIN, false);
-			upload_relay_changelogs("LIGHT OFF");
+			upload_relay_changelogs("LIGHT OFF", isAppControl);
 		}
 	}
 	else if (HPIN == HPIN_FAN) {
 		if (STT == ON) {
 			STT_FAN = STT_ON;
 			digitalWrite(HPIN, true);
-			upload_relay_changelogs("FAN ON");
+			upload_relay_changelogs("FAN ON", isAppControl);
 		}
 		else if (STT == OFF) {
 			STT_FAN = STT_OFF;
 			digitalWrite(HPIN, false);
-			upload_relay_changelogs("FAN OFF");
+			upload_relay_changelogs("FAN OFF", isAppControl);
 		}
 	}
 	else if (HPIN == HPIN_SPRAY) {
 		if (STT == ON) {
 			STT_SPRAY = STT_ON;
 			digitalWrite(HPIN, true);
-			upload_relay_changelogs("SPRAY ON");
+			upload_relay_changelogs("SPRAY ON", isAppControl);
 		}
 		else if (STT == OFF) {
 			STT_SPRAY = STT_OFF;
 			digitalWrite(HPIN, false);
-			upload_relay_changelogs("SPRAY OFF");
+			upload_relay_changelogs("SPRAY OFF", isAppControl);
 		}
 	}
 	else if (HPIN == HPIN_COVER) {
@@ -371,20 +849,24 @@ void control_relay_hub(int HPIN, String STT, bool publish = false) {
 			STT_COVER = STT_ON;
 			digitalWrite(HPIN_COVER_OPEN, true);
 			digitalWrite(HPIN_COVER_CLOSE, false);
-			upload_relay_changelogs("COVER ON");
+			upload_relay_changelogs("COVER ON", isAppControl);
 		}
 		else if (STT == OFF) {
 			STT_COVER = STT_OFF;
 			digitalWrite(HPIN_COVER_OPEN, false);
 			digitalWrite(HPIN_COVER_CLOSE, true);
-			upload_relay_changelogs("COVER OFF");
+			upload_relay_changelogs("COVER OFF", isAppControl);
 		}
 		else if (STT == MID) {
 			STT_COVER = STT_OFF;
 			digitalWrite(HPIN_COVER_OPEN, false);
 			digitalWrite(HPIN_COVER_CLOSE, false);
-			upload_relay_changelogs("COVER STOP");
+			upload_relay_changelogs("COVER STOP", isAppControl);
 		}
+	}
+
+	if (publish) {
+		upload_relay_hub_status();
 	}
 }
 
@@ -484,10 +966,10 @@ int map_value_to_button(int val) {
 	return BT_NOBUTTON;
 }
 int button_read() {
-	static const int total = 10;
+	static const int total = 20;
 	static int pre[total];
 	static unsigned long t = millis();
-	static const unsigned long debound_time = 1;
+	static const unsigned long debound_time = 2;
 	static int last_button = BT_NOBUTTON;
 	if ((millis() - t) > debound_time) {
 		t = millis();
@@ -871,350 +1353,6 @@ bool mqtt_publish(String topic, String payload, bool retain) {
 #pragma endregion
 
 
-#pragma region LCD
-
-void lcd_print(String data, int line, int align = MIDDLE, int padding_left = 0) {
-	if (line >= 4) { return; }
-	String data_fullLine;
-	int numSpace = 0;
-	switch (align)
-	{
-	case LEFT:
-		data_fullLine = data;
-		numSpace = 20 - data.length();
-		for (int i = 0; i < numSpace; i++)
-		{
-			data_fullLine += " ";
-		}
-		break;
-	case MIDDLE:
-		numSpace = (20 - data.length()) / 2;
-		for (int i = 0; i < numSpace; i++)
-		{
-			data_fullLine += " ";
-		}
-		data_fullLine += data;
-		for (int i = 0; i < numSpace; i++)
-		{
-			data_fullLine += " ";
-		}
-		break;
-	case RIGHT:
-		numSpace = 20 - data.length();
-		for (int i = 0; i < numSpace; i++)
-		{
-			data_fullLine += " ";
-		}
-		data_fullLine += data;
-		break;
-	default:
-		break;
-	}
-	for (int i = 0; i < padding_left; i++)
-	{
-		data_fullLine = " " + data_fullLine;
-	}
-
-	if (line < 4) {
-		if ((data_fullLine.length() + padding_left) > 20) {
-			data_fullLine = data_fullLine.substring(0, 20);
-		}
-		lcd.setCursor(0, line);
-		lcd.print(data_fullLine);
-	}
-}
-
-void lcd_init() {
-	lcd.begin(21, 22);
-	lcd.createChar(SB_SELECT, SELECT);
-	lcd.backlight();
-	lcd_print("AGRISYSTEM/" + HubID, LINE0, MIDDLE);
-	lcd_print("IoT Labs - MIC@DTU", LINE1, MIDDLE);
-	lcd_print("Starting", LINE2, MIDDLE);
-}
-
-void lcd_select(int col, int row) {
-	static int old_col;
-	static int old_row;
-
-	lcd.setCursor(old_col, old_row);
-	lcd.print(' ');
-
-	old_col = col;
-	old_row = row;
-
-	lcd.setCursor(col, row);
-	lcd.write(SB_SELECT);
-}
-
-void lcd_showMainMenu() {
-	lcd.clear();
-	lcd_print("HUB STATUS", LINE0, LEFT, 1);
-	lcd_print("NODE ID 1", LINE1, LEFT, 1);
-	lcd_print("NODE ID 2NODE ID 2NODE ID 2NODE ID 2", LINE2, LEFT, 1);
-	//lcd_print("Vườn hoa sữa", LINE3, LEFT, 1);
-
-}
-
-void lcd_showTime(bool force = false) {
-	if (force) {
-		lcd.setCursor(17, 0);		lcd.print(dayShortStr(weekday()));
-		lcd.setCursor(17, 1);		lcd.print(hour() < 10 ? " 0" + String(hour()) : " " + String(hour()));
-		lcd.setCursor(17, 2);		lcd.print(minute() < 10 ? " 0" + String(minute()) : " " + String(minute()));
-		lcd.setCursor(17, 3);		lcd.print(second() < 10 ? " 0" + String(second()) : " " + String(second()));
-		return;
-	}
-	static ulong t = millis();
-	if ((millis() - t) >= 1000) {
-		t = millis();
-		lcd_showTime(true);
-	}
-}
-void show_symbol_select(int col, int row) {
-	lcd.setCursor(col, row);
-	lcd.write(SB_SELECT);
-}
-void clear_symbol_select(int col, int row) {
-	lcd.setCursor(col, row);
-	lcd.print(' ');
-}
-
-
-
-#pragma region Classes for LCD
-//void lcd_showTime(bool force = false);
-
-enum LCD_Pages {
-	LCD_PAGE_MAIN_MENU = 0,
-	LCD_PAGE_MAIN_MENU_EXPAND,
-	LCD_PAGE_SENSOR,
-	LCD_PAGE_CONTROL
-};
-class lcd_currsor_coordinate {
-public:
-	lcd_currsor_coordinate(int _col = 0, int _row = 0) {
-		col = _col;
-		row = _row;
-	}
-	int col;
-	int row;
-	void print_detail(String name = "") {
-		Dprintf("%s(%d,%d)\r\n", name.c_str(), col, row);
-	}
-};
-
-//void lcd_print(String data, int line, int align = MIDDLE, int padding_left = 0);
-
-class LCD_Frame_Main_Menu {
-public:
-	bool isExpand = false;
-	int index_Device_Selected = 0;
-	lcd_currsor_coordinate coordinate_symbol_device_selected;
-
-	void select_next_device() {
-		if (index_Device_Selected < (DevicesList.length() - 1)) {
-			index_Device_Selected++;
-			if (coordinate_symbol_device_selected.row < 3) {
-				coordinate_symbol_device_selected.row++;
-			}
-		}
-	}
-	void select_previous_device() {
-		if (index_Device_Selected > 0) {
-			if (!((index_Device_Selected-- != 1) && (coordinate_symbol_device_selected.row == 1))) {
-				if (coordinate_symbol_device_selected.row > 0) {
-					coordinate_symbol_device_selected.row--;
-				}
-			}
-		}
-	}
-	void render() {
-		lcd.clear();
-		if (DevicesList.at(0).ID == "") {
-			lcd_print("Can not found", LINE0, LEFT, 1);
-			lcd_print("HUB ID:  " + HubID, LINE1, LEFT, 1);
-			lcd_print("ON SERVER.", LINE2, LEFT, 1);
-			lcd_print("Please register!", LINE3, LEFT, 1);
-			return;
-		}
-		String HubName = DevicesList.at(0).Name;
-		HubName.toUpperCase();
-		lcd_print(HubName, LINE0, LEFT, 3); //HUB NAME
-
-		if (index_Device_Selected >= 0) {
-			switch (coordinate_symbol_device_selected.row)
-			{
-			case 0:
-				if ((DevicesList.length()) > 1) {
-					lcd_print(String(index_Device_Selected + 1) + "." + DevicesList.at(index_Device_Selected + 1).Name, LINE1, LEFT, 1);
-					if ((DevicesList.length()) > 2) {
-						lcd_print(String(index_Device_Selected + 2) + "." + DevicesList.at(index_Device_Selected + 2).Name, LINE2, LEFT, 1);
-						if ((DevicesList.length()) > 3) {
-							lcd_print(String(index_Device_Selected + 3) + "." + DevicesList.at(index_Device_Selected + 3).Name, LINE3, LEFT, 1);
-						}
-					}
-				}
-				break;
-
-			case 1:
-				if ((DevicesList.length()) > 1) {
-					lcd_print(String(index_Device_Selected) + "." + DevicesList.at(index_Device_Selected).Name, LINE1, LEFT, 1);
-					if ((DevicesList.length()) > 2) {
-						lcd_print(String(index_Device_Selected + 1) + "." + DevicesList.at(index_Device_Selected + 1).Name, LINE2, LEFT, 1);
-						if ((DevicesList.length()) > 3) {
-							lcd_print(String(index_Device_Selected + 2) + "." + DevicesList.at(index_Device_Selected + 2).Name, LINE3, LEFT, 1);
-						}
-					}
-				}
-				break;
-
-			case 2:
-				if ((DevicesList.length()) > 1) {
-					lcd_print(String(index_Device_Selected - 1) + "." + DevicesList.at(index_Device_Selected - 1).Name, LINE1, LEFT, 1);
-					if ((DevicesList.length()) > 2) {
-						lcd_print(String(index_Device_Selected) + "." + DevicesList.at(index_Device_Selected).Name, LINE2, LEFT, 1);
-						if ((DevicesList.length()) > 3) {
-							lcd_print(String(index_Device_Selected + 1) + "." + DevicesList.at(index_Device_Selected + 1).Name, LINE3, LEFT, 1);
-						}
-					}
-				}
-				break;
-
-			case 3:
-				if ((DevicesList.length()) > 1) {
-					lcd_print(String(index_Device_Selected - 2) + "." + DevicesList.at(index_Device_Selected - 2).Name, LINE1, LEFT, 1);
-					if ((DevicesList.length()) > 2) {
-						lcd_print(String(index_Device_Selected - 1) + "." + DevicesList.at(index_Device_Selected - 1).Name, LINE2, LEFT, 1);
-						if ((DevicesList.length()) > 3) {
-							lcd_print(String(index_Device_Selected) + "." + DevicesList.at(index_Device_Selected).Name, LINE3, LEFT, 1);
-						}
-					}
-				}
-				break;
-
-			default:
-				break;
-			}
-
-			show_symbol_select(coordinate_symbol_device_selected.col, coordinate_symbol_device_selected.row);
-		}
-
-		lcd_showTime(true);
-	}
-
-	~LCD_Frame_Main_Menu() {
-		Dprintln("LCD_Frame_Main_Menu was destroyed");
-		clear_symbol_select(coordinate_symbol_device_selected.col, coordinate_symbol_device_selected.row);
-	}
-} Main_Menu;
-
-class LCD_Frame_Menu_Expand {
-public:
-	void render() {
-		lcd.clear();
-		String HubName = DevicesList.at(0).Name;
-		HubName.toUpperCase();
-		//lcd_print(HubName, LINE0, LEFT, 3); //HUB NAME
-		lcd_print(String(Main_Menu.index_Device_Selected) + "." + DevicesList.at(Main_Menu.index_Device_Selected).Name, LINE0, LEFT, 1);
-		Dprintln("#Menu_Expand debug");
-		Dprintf("index_Device_Selected = %d\n", Main_Menu.index_Device_Selected);
-		Dprintf("Device_Selected.Type = %d\n", DevicesList.at(Main_Menu.index_Device_Selected).Type);
-		DevicesList.at(Main_Menu.index_Device_Selected).printDetails();
-
-		switch (DevicesList.at(Main_Menu.index_Device_Selected).Type)
-		{
-		case GARDEN_HUB:
-		case GARDEN_NODE:
-			lcd_print("Sensors", LINE1, LEFT, 4);
-			lcd_print("Control", LINE2, LEFT, 4);
-			show_symbol_select(2, 1);
-			break;
-		case ENVIROMENT_MONITOR:
-			break;
-		case TANK_CONTROLER:
-			break;
-		default:
-			break;
-		}
-	}
-} Menu_Expand;
-
-class LCD_Frame_Class {
-public:
-	//LCD_Frame_Main_Menu Main_Menu;
-	LCD_Pages current_page = LCD_PAGE_MAIN_MENU;
-
-	void update_Frame() {
-		int button = button_read();
-		if (button > 0) {
-			switch (current_page)
-			{
-			case LCD_PAGE_MAIN_MENU:
-				switch (button)
-				{
-				case BT_NOBUTTON:
-					break;
-				case BT_LEFT:
-					break;
-				case BT_DOWN:
-					Main_Menu.select_next_device();
-					Main_Menu.render();
-					break;
-				case BT_UP:
-					Main_Menu.select_previous_device();
-					Main_Menu.render();
-					break;
-				case BT_BACK:
-					break;
-				case BT_RIGHT:
-				case BT_ENTER:
-					Main_Menu.isExpand = true;
-					current_page = LCD_PAGE_MAIN_MENU_EXPAND;
-					Menu_Expand.render();
-					break;
-				default:
-					break;
-				}
-				break;
-			case LCD_PAGE_MAIN_MENU_EXPAND:
-				switch (button)
-				{
-				case BT_NOBUTTON:
-					break;
-				case BT_DOWN:
-					clear_symbol_select(2, 1);
-					show_symbol_select(2, 2);
-					break;
-				case BT_RIGHT:
-					break;
-				case BT_UP:
-					clear_symbol_select(2, 2);
-					show_symbol_select(2, 1);
-					break;
-				case BT_LEFT:
-				case BT_BACK:
-					current_page = LCD_PAGE_MAIN_MENU;
-					Main_Menu.render();
-					break;
-				case BT_ENTER:
-					break;
-				default:
-					break;
-				}
-				break;
-			case LCD_PAGE_SENSOR:
-				break;
-			case LCD_PAGE_CONTROL:
-				break;
-			default:
-				break;
-			}
-		}
-	}
-} LCD_Frame;
-#pragma endregion
-#pragma endregion
-
 
 #pragma region TASKS
 void updateTimeStamp(unsigned long interval = 0) {
@@ -1362,6 +1500,7 @@ void setup()
 	if (update_tray_list()) {
 		Dprintln("DevicesList_length = " + String(DevicesList.length()));
 		//LCD_Frame.Main_Menu.init(DevicesList.at(0), lcd_currsor_coordinate(0, 0));
+		LCD_Frame.current_page = LCD_PAGE_MAIN_MENU;
 		Main_Menu.render();
 	}
 	else {
