@@ -11,7 +11,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _FIRMWARE_VERSION ("0.1.21" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.22 doing" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -93,31 +93,46 @@ enum LINE {
 	LINE3
 };
 
-#define REQUEST		"REQUEST"
-#define RESPONSE	"RESPONSE"
-#define CMD_T		"CMD_T"
-#define MES_ID		"MES_ID"
-#define HUB_ID		"HUB_ID"
-#define HUB_NAME	"HUB_NAME"
-#define SOURCE		"SOURCE"
-#define DEST		"DEST"
-#define TIMESTAMP	"TIMESTAMP"
-#define CMD_T		"CMD_T"
-#define	SERVER		"SERVER"
+#define REQUEST			"REQUEST"
+#define RESPONSE		"RESPONSE"
+#define CMD_T			"CMD_T"
+#define MES_ID			"MES_ID"
+#define HUB_ID			"HUB_ID"
+#define HUB_NAME		"HUB_NAME"
+#define SOURCE			"SOURCE"
+#define DEST			"DEST"
+#define TIMESTAMP		"TIMESTAMP"
+#define CMD_T			"CMD_T"
+#define	SERVER			"SERVER"
 
-#define ON			"ON"
-#define OFF			"OFF"
-#define MID			"MID"
+#define	HUB_CODE		"HUB_CODE"
+#define	ACTION_NAME		"ACTION_NAME"
+#define	ACTION_FROM		"ACTION_FROM"
+#define	ACTION_TO		"ACTION_TO"
+#define APP				"APP"
 
-#define LIGHT		"LIGHT"
-#define FAN			"FAN"
-#define SPRAY		"SPRAY"
-#define COVER		"COVER"
+#define WIFI_SIGNAL		"WIFI_SIGNAL"
+#define TEMP_INTERNAL	"TEMP_INTERNAL"
 
-#define MANURE		"MANURE"
-#define LED_MOSFET	"LED_MOSFET"
-#define TEMP		"TEMP"
-#define HUMI		"HUMI"
+#define ON				"ON"
+#define OFF				"OFF"
+#define MID				"MID"
+
+#define LIGHT			"LIGHT"
+#define FAN				"FAN"
+#define SPRAY			"SPRAY"
+#define COVER			"COVER"
+
+#define MANURE			"MANURE"
+#define LED_MOSFET		"LED_MOSFET"
+#define TEMP			"TEMP"
+#define HUMI			"HUMI"
+#define S_TEMP			"S_TEMP"
+#define S_HUMI			"S_HUMI"
+#define S_LIGHT			"S_LIGHT"	
+#define S_PH			"S_PH"
+#define S_EC			"S_EC"	
+
 
 enum COMMAND_TYPE {
 	NO_COMMAND = 0, //phòng trường hợp ko có gì nó tự chuyển thành 0
@@ -529,33 +544,97 @@ public:
 	void render() {
 		lcd.clear();
 
-		switch (DevicesList.at(Main_Menu.index_Device_Selected).Type)
-		{
-		case GARDEN_HUB:
-			lcd_print("LIGHT  " + String(STT_LIGHT == STT_ON ? ON : OFF), LINE0, LEFT, 1);
-			lcd_print("FAN    " + String(STT_FAN == STT_ON ? ON : OFF), LINE1, LEFT, 1);
-			lcd_print("SPRAY  " + String(STT_SPRAY == STT_ON ? ON : OFF), LINE2, LEFT, 1);
-			lcd_print("COVER  " + String(STT_COVER == STT_ON ? ON : OFF), LINE3, LEFT, 1);
-			show_symbol_select(0, cursor_select);
-			break;
-		case GARDEN_NODE:
-		case ENVIROMENT_MONITOR:
-			break;
-		case TANK_CONTROLER:
-			break;
-		default:
-			break;
-		}
+		lcd_print("LIGHT  " + String(STT_LIGHT == STT_ON ? ON : OFF), LINE0, LEFT, 1);
+		lcd_print("FAN    " + String(STT_FAN == STT_ON ? ON : OFF), LINE1, LEFT, 1);
+		lcd_print("SPRAY  " + String(STT_SPRAY == STT_ON ? ON : OFF), LINE2, LEFT, 1);
+		lcd_print("COVER  " + String(STT_COVER == STT_ON ? ON : OFF), LINE3, LEFT, 1);
+		show_symbol_select(0, cursor_select);
 
 		lcd_showTime(true);
 	}
 } Detail_Hub;
 
 class LCD_Frame_Detail_Node {
+private:
+	const int PAGE_NODE_CONTROL = 0;
+	const int PAGE_NODE_SENSOR = 1;
+
+	String N_MANURE;
+	String N_SPRAY;
+	String N_LIGHT;
+	String N_LED_MOSFET;
+
+	float N_S_TEMP;
+	float N_S_HUMI;
+	float N_S_LIGHT;
+	float N_S_PH;
+	float N_S_EC;
+
 public:
+	int cursor_select = LINE0;
+	int page_node = PAGE_NODE_CONTROL;
+
+	String current_Node_ID;
+	void get_Detail_Node(String NodeID) {
+		current_Node_ID = NodeID;
+		DynamicJsonBuffer jsBufferCommandGetDetailNode(500);
+		JsonObject& jsCommandGetDetailNode = jsBufferCommandGetDetailNode.createObject();
+
+		jsCommandGetDetailNode[MES_ID] = String(micros());
+		jsCommandGetDetailNode[HUB_ID] = HubID;
+		jsCommandGetDetailNode[SOURCE] = HubID;
+		jsCommandGetDetailNode[DEST] = NodeID;
+		jsCommandGetDetailNode[TIMESTAMP] = String(now());
+		jsCommandGetDetailNode[CMD_T] = int(GET_DATA_GARDEN_NODE);
+
+		String strGetDetailNode;
+		jsCommandGetDetailNode.printTo(strGetDetailNode);
+		Rprintln(strGetDetailNode);
+		Dprintf("RF <<< [%d]\r\n", strGetDetailNode.length());
+		Dprintln(strGetDetailNode);
+		delay(10);
+	}
 	void render() {
 		lcd.clear();
+
+		if (page_node == PAGE_NODE_CONTROL) {
+			lcd_print("MANURE   " + N_MANURE, LINE0, LEFT, 1);
+			lcd_print("SPRAY    " + N_SPRAY, LINE1, LEFT, 1);
+			lcd_print("LIGHT    " + N_LIGHT, LINE2, LEFT, 1);
+			lcd_print("LED_MOS  " + N_LED_MOSFET.substring(2) + "%", LINE3, LEFT, 1);
+			show_symbol_select(0, cursor_select);
+		}
+		else if (page_node == PAGE_NODE_SENSOR) {
+
+		}
+
 		lcd_showTime(true);
+	}
+
+	void refresh_Detail_Node(JsonObject& nodeData) {
+		N_MANURE = nodeData[MANURE].as<String>();
+		N_SPRAY = nodeData[SPRAY].as<String>();
+		N_LIGHT = nodeData[LIGHT].as<String>();
+		N_LED_MOSFET = nodeData[LED_MOSFET].as<String>();
+
+		N_S_TEMP = nodeData[S_TEMP].as<String>().toFloat();
+		N_S_HUMI = nodeData[S_HUMI].as<String>().toFloat();
+		N_S_LIGHT = nodeData[S_LIGHT].as<String>().toFloat();
+		N_S_PH = nodeData[S_PH].as<String>().toFloat();
+		N_S_EC = nodeData[S_EC].as<String>().toFloat();
+	}
+
+	void reset_temp_detail() {
+		N_MANURE = "";
+		N_SPRAY = "";
+		N_LIGHT = "";
+		N_LED_MOSFET = "";
+
+		N_S_TEMP = 0.0;
+		N_S_HUMI = 0.0;
+		N_S_LIGHT = 0.0;
+		N_S_PH = 0.0;
+		N_S_EC = 0.0;
 	}
 } Detail_Node;
 
@@ -594,13 +673,16 @@ public:
 					Main_Menu.select_next_device();
 					Main_Menu.render();
 					break;
+
 				case BT_UP:
 					Main_Menu.select_previous_device();
 					Main_Menu.render();
 					break;
+
 				case BT_LEFT:
 				case BT_BACK:
 					break;
+
 				case BT_RIGHT:
 				case BT_ENTER:
 					switch (DevicesList.at(Main_Menu.index_Device_Selected).Type)
@@ -613,6 +695,8 @@ public:
 						break;
 					case GARDEN_NODE:
 						current_page = LCD_PAGE_DETAIL_NODE;
+						Detail_Node.cursor_select = LINE0;
+						Detail_Node.get_Detail_Node(DevicesList.at(Main_Menu.index_Device_Selected).ID);
 						Detail_Node.render();
 						break;
 					case ENVIROMENT_MONITOR:
@@ -631,7 +715,9 @@ public:
 				default:
 					break;
 				}
+
 				break;
+
 			case LCD_PAGE_DETAIL_HUB:
 				switch (button)
 				{
@@ -687,14 +773,23 @@ public:
 					break;
 				}
 				break;
+
 			case LCD_PAGE_DETAIL_NODE:
 				switch (button)
 				{
 				case BT_NOBUTTON:
 					break;
 				case BT_DOWN:
+					if (Detail_Node.cursor_select < LINE3) {
+						Detail_Node.cursor_select++;
+					}
+					Detail_Node.render();
 					break;
 				case BT_UP:
+					if (Detail_Node.cursor_select > LINE0) {
+						Detail_Node.cursor_select--;
+					}
+					Detail_Node.render();
 					break;
 				case BT_LEFT:
 					break;
@@ -703,12 +798,15 @@ public:
 					Main_Menu.render();
 					break;
 				case BT_RIGHT:
+					Detail_Node.get_Detail_Node(Detail_Node.current_Node_ID);
+					break;
 				case BT_ENTER:
 					break;
 				default:
 					break;
 				}
 				break;
+
 			case LCD_PAGE_DETAIL_ENVI:
 				switch (button)
 				{
@@ -795,10 +893,10 @@ void upload_relay_changelogs(String action_name, bool isAppControl = true) {
 	jsRelayChangelog[DEST] = SERVER;
 	jsRelayChangelog[TIMESTAMP] = String(now());
 	jsRelayChangelog[CMD_T] = int(UPDATE_ACTION_LOGS);
-	jsRelayChangelog["HUB_CODE"] = HubID;
-	jsRelayChangelog["ACTION_NAME"] = action_name;
-	jsRelayChangelog["ACTION_FROM"] = isAppControl ? "APP" : HubID;
-	jsRelayChangelog["ACTION_TO"] = HubID;
+	jsRelayChangelog[HUB_CODE] = HubID;
+	jsRelayChangelog[ACTION_NAME] = action_name;
+	jsRelayChangelog[ACTION_FROM] = isAppControl ? APP : HubID;
+	jsRelayChangelog[ACTION_TO] = HubID;
 
 	String dataRelayChangelog;
 	jsRelayChangelog.printTo(dataRelayChangelog);
@@ -910,7 +1008,17 @@ void handle_rf_communicate() {
 	String _DEST = nodeData[DEST].as<String>();
 	String _SOURCE = nodeData[SOURCE].as<String>();
 	nodeData[TIMESTAMP] = String(now());
+
 	if (_hubID == HubID) {
+
+		//update on lcd
+		if (_SOURCE == Detail_Node.current_Node_ID) {
+			Detail_Node.reset_temp_detail();
+			Detail_Node.refresh_Detail_Node(nodeData);
+			Detail_Node.render();
+		}
+
+
 		String nodeDataString;
 		if (_DEST == HubID) {
 			nodeData[DEST] = SERVER;
@@ -929,6 +1037,9 @@ void handle_serial() {
 		Dprintln(F("Serial >>> "));
 		Dprintln(s);
 		Rprintln(s);
+		Dprintf("RF <<< [%d]\r\n", s.length());
+		Dprintln(s);
+		delay(10);
 	}
 }
 
@@ -1247,6 +1358,9 @@ void parseJsonLibsFromServer(String& json) {
 	//int INTERVALUPDATE = nodeLib["INTERVAL_UPDATE"].as<int>();
 
 	Rprintln(json);
+	Dprintf("RF <<< [%d]\r\n", json.length());
+	Dprintln(json);
+	delay(10);
 }
 
 void mqtt_callback(char* topic, uint8_t* payload, unsigned int length) {
@@ -1428,8 +1542,8 @@ void updateHubHardwareStatus(unsigned long interval = 5000) {
 		jsHubHardwareStatus[DEST] = SERVER;
 		jsHubHardwareStatus[TIMESTAMP] = String(now());
 		jsHubHardwareStatus[CMD_T] = (int)UPDATE_HUB_HARDWARE_STATUS;
-		jsHubHardwareStatus["WIFI_SIGNAL"] = String(wifi_quality());
-		jsHubHardwareStatus["TEMP_INTERNAL"] = String(temperatureRead(), 2);
+		jsHubHardwareStatus[WIFI_SIGNAL] = String(wifi_quality());
+		jsHubHardwareStatus[TEMP_INTERNAL] = String(temperatureRead(), 2);
 
 		String strHubHardwareStatus;
 		jsHubHardwareStatus.printTo(strHubHardwareStatus);
