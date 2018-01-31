@@ -11,7 +11,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _FIRMWARE_VERSION ("0.1.22 doing" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.22.2" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -556,13 +556,10 @@ public:
 
 class LCD_Frame_Detail_Node {
 private:
-	const int PAGE_NODE_CONTROL = 0;
-	const int PAGE_NODE_SENSOR = 1;
-
-	String N_MANURE;
-	String N_SPRAY;
-	String N_LIGHT;
-	String N_LED_MOSFET;
+	String N_MANURE = "...";
+	String N_SPRAY = "...";
+	String N_LIGHT = "...";
+	String N_LED_MOSFET = "PC..";
 
 	float N_S_TEMP;
 	float N_S_HUMI;
@@ -571,6 +568,12 @@ private:
 	float N_S_EC;
 
 public:
+	const int PAGE_NODE_CONTROL = 0;
+	const int PAGE_NODE_SENSOR = 1;
+
+	const int Slider_Led_Mosfet_Up = 0;
+	const int Slider_Led_Mosfet_Down = 1;
+
 	int cursor_select = LINE0;
 	int page_node = PAGE_NODE_CONTROL;
 
@@ -594,6 +597,93 @@ public:
 		Dprintln(strGetDetailNode);
 		delay(10);
 	}
+
+	//PAGE_NODE_CONTROL:toggle_current_relay_node ; PAGE_NODE_SENSOR:get_Detail_Node
+	void toggle_current_relay_node() {
+		if ((page_node == PAGE_NODE_CONTROL) && (cursor_select != LINE3)) {
+			String NodeID = current_Node_ID;
+			String Relay;
+			String Status;
+			switch (cursor_select)
+			{
+			case LINE0:
+				Relay = "MANURE";
+				Status = (N_MANURE == ON ? OFF : ON);
+				break;
+			case LINE1:
+				Relay = "SPRAY";
+				Status = (N_SPRAY == ON ? OFF : ON);
+				break;
+			case LINE2:
+				Relay = "LIGHT";
+				Status = (N_LIGHT == ON ? OFF : ON);
+				break;
+			default:
+				break;
+			}
+
+			DynamicJsonBuffer jsBufferCommandControlRelayNode(500);
+			JsonObject& jsCommandControlRelayNode = jsBufferCommandControlRelayNode.createObject();
+
+			jsCommandControlRelayNode[MES_ID] = String(micros());
+			jsCommandControlRelayNode[HUB_ID] = HubID;
+			jsCommandControlRelayNode[SOURCE] = HubID;
+			jsCommandControlRelayNode[DEST] = NodeID;
+			jsCommandControlRelayNode[TIMESTAMP] = String(now());
+			jsCommandControlRelayNode[CMD_T] = int(CONTROL_GARDEN_NODE);
+			jsCommandControlRelayNode[Relay] = Status;
+
+			String strControlRelayNode;
+			jsCommandControlRelayNode.printTo(strControlRelayNode);
+			Rprintln(strControlRelayNode);
+			Dprintf("RF <<< [%d]\r\n", strControlRelayNode.length());
+			Dprintln(strControlRelayNode);
+			delay(10);
+		}
+		else {
+			get_Detail_Node(current_Node_ID);
+		}
+	}
+	void Slider_Led_Mosfet(int trend) {
+		if (isdigit(N_LED_MOSFET[2])) {
+			int percent = N_LED_MOSFET.substring(2).toInt();
+
+			if (trend == Slider_Led_Mosfet_Up) {
+				percent += 5;
+				if (percent > 100) {
+					percent = 100;
+				}
+			}
+			else if (trend == Slider_Led_Mosfet_Down) {
+				percent -= 5;
+				if (percent < 0) {
+					percent = 0;
+				}
+			}
+
+			DynamicJsonBuffer jsBufferCommandControlRelayNode(500);
+			JsonObject& jsCommandControlRelayNode = jsBufferCommandControlRelayNode.createObject();
+
+			jsCommandControlRelayNode[MES_ID] = String(micros());
+			jsCommandControlRelayNode[HUB_ID] = HubID;
+			jsCommandControlRelayNode[SOURCE] = HubID;
+			jsCommandControlRelayNode[DEST] = current_Node_ID;
+			jsCommandControlRelayNode[TIMESTAMP] = String(now());
+			jsCommandControlRelayNode[CMD_T] = int(CONTROL_GARDEN_NODE);
+			jsCommandControlRelayNode[LED_MOSFET] = "PC" + String(percent);
+
+			String strControlRelayNode;
+			jsCommandControlRelayNode.printTo(strControlRelayNode);
+			Rprintln(strControlRelayNode);
+			Dprintf("RF <<< [%d]\r\n", strControlRelayNode.length());
+			Dprintln(strControlRelayNode);
+			delay(10);
+		}
+		else {
+			get_Detail_Node(current_Node_ID);
+		}
+	}
+
 	void render() {
 		lcd.clear();
 
@@ -625,10 +715,10 @@ public:
 	}
 
 	void reset_temp_detail() {
-		N_MANURE = "";
-		N_SPRAY = "";
-		N_LIGHT = "";
-		N_LED_MOSFET = "";
+		N_MANURE = "...";
+		N_SPRAY = "...";
+		N_LIGHT = "...";
+		N_LED_MOSFET = "PC..";
 
 		N_S_TEMP = 0.0;
 		N_S_HUMI = 0.0;
@@ -685,6 +775,7 @@ public:
 
 				case BT_RIGHT:
 				case BT_ENTER:
+					DevicesList.at(Main_Menu.index_Device_Selected).printDetails();
 					switch (DevicesList.at(Main_Menu.index_Device_Selected).Type)
 					{
 					case UNKNOWN:
@@ -696,6 +787,7 @@ public:
 					case GARDEN_NODE:
 						current_page = LCD_PAGE_DETAIL_NODE;
 						Detail_Node.cursor_select = LINE0;
+						Detail_Node.reset_temp_detail();
 						Detail_Node.get_Detail_Node(DevicesList.at(Main_Menu.index_Device_Selected).ID);
 						Detail_Node.render();
 						break;
@@ -742,6 +834,7 @@ public:
 					current_page = LCD_PAGE_MAIN_MENU;
 					Main_Menu.render();
 					break;
+
 				case BT_RIGHT:
 				case BT_ENTER:
 					extern void control_relay_hub(int HPIN, String STT, bool publish = false, bool isAppControl = true);
@@ -791,14 +884,29 @@ public:
 					}
 					Detail_Node.render();
 					break;
-				case BT_LEFT:
-					break;
+
 				case BT_BACK:
 					current_page = LCD_PAGE_MAIN_MENU;
 					Main_Menu.render();
 					break;
+
+				case BT_LEFT:
+					if (Detail_Node.cursor_select != LINE3) {
+						current_page = LCD_PAGE_MAIN_MENU;
+						Main_Menu.render();
+					}
+					else {
+						Detail_Node.Slider_Led_Mosfet(Detail_Node.Slider_Led_Mosfet_Down);
+					}
+
+					break;
 				case BT_RIGHT:
-					Detail_Node.get_Detail_Node(Detail_Node.current_Node_ID);
+					if (Detail_Node.cursor_select != LINE3) {
+						Detail_Node.toggle_current_relay_node();
+					}
+					else {
+						Detail_Node.Slider_Led_Mosfet(Detail_Node.Slider_Led_Mosfet_Up);
+					}
 					break;
 				case BT_ENTER:
 					break;
@@ -816,8 +924,8 @@ public:
 					break;
 				case BT_UP:
 					break;
+
 				case BT_LEFT:
-					break;
 				case BT_BACK:
 					current_page = LCD_PAGE_MAIN_MENU;
 					Main_Menu.render();
@@ -838,8 +946,8 @@ public:
 					break;
 				case BT_UP:
 					break;
+
 				case BT_LEFT:
-					break;
 				case BT_BACK:
 					current_page = LCD_PAGE_MAIN_MENU;
 					Main_Menu.render();
@@ -1013,7 +1121,6 @@ void handle_rf_communicate() {
 
 		//update on lcd
 		if (_SOURCE == Detail_Node.current_Node_ID) {
-			Detail_Node.reset_temp_detail();
 			Detail_Node.refresh_Detail_Node(nodeData);
 			Detail_Node.render();
 		}
