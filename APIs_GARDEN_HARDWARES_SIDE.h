@@ -1,7 +1,7 @@
 ﻿#define IGNORE_THIS_FILE
 #ifndef IGNORE_THIS_FILE
 
-#define API_VERSION  "0.1.14"
+#define API_VERSION  "0.1.15"
 /*
 	v0.1.14	add COMMAND_TYPE::ADD_NEW_TRAY
 */
@@ -245,6 +245,7 @@ UPDATE_DATA_GARDEN_NODE
 		"DEST"		 : "",
 		"TIMESTAMP"  : "",
 		"CMD_T"		 : UPDATE_DATA_GARDEN_NODE,
+		"ACTION_FROM" : "HIC0001", //chỉ có khi response từ CONTROL_GARDEN_NODE
 		"MANURE"	 : "ON",
 		"SPRAY"		 : "ON",
 		"LIGHT"		 : "OFF",
