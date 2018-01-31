@@ -11,7 +11,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _FIRMWARE_VERSION ("0.1.22.2" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.22.3" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -569,7 +569,8 @@ private:
 
 public:
 	const int PAGE_NODE_CONTROL = 0;
-	const int PAGE_NODE_SENSOR = 1;
+	const int PAGE_NODE_SENSOR1 = 1;
+	const int PAGE_NODE_SENSOR2 = 2;
 
 	const int Slider_Led_Mosfet_Up = 0;
 	const int Slider_Led_Mosfet_Down = 1;
@@ -578,15 +579,17 @@ public:
 	int page_node = PAGE_NODE_CONTROL;
 
 	String current_Node_ID;
-	void get_Detail_Node(String NodeID) {
-		current_Node_ID = NodeID;
+	void get_Detail_Node(String NodeID = "") {
+		if (NodeID != "") {
+			current_Node_ID = NodeID;
+		}
 		DynamicJsonBuffer jsBufferCommandGetDetailNode(500);
 		JsonObject& jsCommandGetDetailNode = jsBufferCommandGetDetailNode.createObject();
 
 		jsCommandGetDetailNode[MES_ID] = String(micros());
 		jsCommandGetDetailNode[HUB_ID] = HubID;
 		jsCommandGetDetailNode[SOURCE] = HubID;
-		jsCommandGetDetailNode[DEST] = NodeID;
+		jsCommandGetDetailNode[DEST] = current_Node_ID;
 		jsCommandGetDetailNode[TIMESTAMP] = String(now());
 		jsCommandGetDetailNode[CMD_T] = int(GET_DATA_GARDEN_NODE);
 
@@ -641,7 +644,7 @@ public:
 			delay(10);
 		}
 		else {
-			get_Detail_Node(current_Node_ID);
+			get_Detail_Node();
 		}
 	}
 	void Slider_Led_Mosfet(int trend) {
@@ -680,7 +683,7 @@ public:
 			delay(10);
 		}
 		else {
-			get_Detail_Node(current_Node_ID);
+			get_Detail_Node();
 		}
 	}
 
@@ -694,8 +697,17 @@ public:
 			lcd_print("LED_MOS  " + N_LED_MOSFET.substring(2) + "%", LINE3, LEFT, 1);
 			show_symbol_select(0, cursor_select);
 		}
-		else if (page_node == PAGE_NODE_SENSOR) {
-
+		else if (page_node == PAGE_NODE_SENSOR1) {
+			lcd_print("TEMP   " + String(N_S_TEMP) + "C", LINE0, LEFT, 1);
+			lcd_print("HUMI   " + String(N_S_HUMI) + "%", LINE1, LEFT, 1);
+			lcd_print("LIGHT  " + String(N_S_LIGHT), LINE2, LEFT, 1);
+			lcd_print("PH     " + String(N_S_PH), LINE3, LEFT, 1);
+		}
+		else if (page_node == PAGE_NODE_SENSOR2) {
+			lcd_print("HUMI   " + String(N_S_HUMI) + "%", LINE0, LEFT, 1);
+			lcd_print("LIGHT  " + String(N_S_LIGHT), LINE1, LEFT, 1);
+			lcd_print("PH     " + String(N_S_PH), LINE2, LEFT, 1);
+			lcd_print("EC     " + String(N_S_EC), LINE3, LEFT, 1);
 		}
 
 		lcd_showTime(true);
@@ -786,6 +798,7 @@ public:
 						break;
 					case GARDEN_NODE:
 						current_page = LCD_PAGE_DETAIL_NODE;
+						Detail_Node.page_node = Detail_Node.PAGE_NODE_CONTROL;
 						Detail_Node.cursor_select = LINE0;
 						Detail_Node.reset_temp_detail();
 						Detail_Node.get_Detail_Node(DevicesList.at(Main_Menu.index_Device_Selected).ID);
@@ -873,14 +886,28 @@ public:
 				case BT_NOBUTTON:
 					break;
 				case BT_DOWN:
-					if (Detail_Node.cursor_select < LINE3) {
+					if ((Detail_Node.page_node == Detail_Node.PAGE_NODE_CONTROL) && (Detail_Node.cursor_select < LINE3)) {
 						Detail_Node.cursor_select++;
+					}
+					else {
+						Detail_Node.page_node++;
+						if (Detail_Node.page_node > Detail_Node.PAGE_NODE_SENSOR2) {
+							Detail_Node.page_node = Detail_Node.PAGE_NODE_CONTROL;
+						}
+						Detail_Node.cursor_select = LINE0;
 					}
 					Detail_Node.render();
 					break;
 				case BT_UP:
-					if (Detail_Node.cursor_select > LINE0) {
+					if ((Detail_Node.page_node == Detail_Node.PAGE_NODE_CONTROL) && (Detail_Node.cursor_select > LINE0)) {
 						Detail_Node.cursor_select--;
+					}
+					else {
+						Detail_Node.page_node--;
+						if (Detail_Node.page_node < Detail_Node.PAGE_NODE_CONTROL) {
+							Detail_Node.page_node = Detail_Node.PAGE_NODE_SENSOR2;
+						}
+						Detail_Node.cursor_select = LINE3;
 					}
 					Detail_Node.render();
 					break;
@@ -891,24 +918,28 @@ public:
 					break;
 
 				case BT_LEFT:
-					if (Detail_Node.cursor_select != LINE3) {
+					if ((Detail_Node.page_node == Detail_Node.PAGE_NODE_CONTROL) && (Detail_Node.cursor_select == LINE3)) {
+						Detail_Node.Slider_Led_Mosfet(Detail_Node.Slider_Led_Mosfet_Down);
+					}
+					else {
 						current_page = LCD_PAGE_MAIN_MENU;
 						Main_Menu.render();
 					}
-					else {
-						Detail_Node.Slider_Led_Mosfet(Detail_Node.Slider_Led_Mosfet_Down);
-					}
+					break;
 
-					break;
 				case BT_RIGHT:
-					if (Detail_Node.cursor_select != LINE3) {
-						Detail_Node.toggle_current_relay_node();
+				case BT_ENTER:
+					if (Detail_Node.page_node == Detail_Node.PAGE_NODE_CONTROL) {
+						if (Detail_Node.cursor_select != LINE3) {
+							Detail_Node.toggle_current_relay_node();
+						}
+						else {
+							Detail_Node.Slider_Led_Mosfet(Detail_Node.Slider_Led_Mosfet_Up);
+						}
 					}
 					else {
-						Detail_Node.Slider_Led_Mosfet(Detail_Node.Slider_Led_Mosfet_Up);
+						Detail_Node.get_Detail_Node();
 					}
-					break;
-				case BT_ENTER:
 					break;
 				default:
 					break;
@@ -1120,7 +1151,7 @@ void handle_rf_communicate() {
 	if (_hubID == HubID) {
 
 		//update on lcd
-		if (_SOURCE == Detail_Node.current_Node_ID) {
+		if ((LCD_Frame.current_page == LCD_PAGE_DETAIL_NODE) && (_SOURCE == Detail_Node.current_Node_ID)) {
 			Detail_Node.refresh_Detail_Node(nodeData);
 			Detail_Node.render();
 		}
