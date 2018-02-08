@@ -11,7 +11,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _FIRMWARE_VERSION ("0.1.22.3" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.23.1" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -127,9 +127,17 @@ enum LINE {
 #define LED_MOSFET		"LED_MOSFET"
 #define TEMP			"TEMP"
 #define HUMI			"HUMI"
+#define WATER_IN		"WATER_IN"
+#define WATER_OUT		"WATER_OUT"
+#define WATER_LEVEL		"WATER_LEVEL"
+#define WATER_HIGH		"WATER_HIGH"
+#define WATER_LOW		"WATER_LOW"
+
 #define S_TEMP			"S_TEMP"
 #define S_HUMI			"S_HUMI"
-#define S_LIGHT			"S_LIGHT"	
+#define S_LIGHT			"S_LIGHT"
+#define S_RAIN			"S_RAIN"
+#define S_WIND			"S_WIND"	
 #define S_PH			"S_PH"
 #define S_EC			"S_EC"	
 
@@ -157,7 +165,7 @@ enum COMMAND_TYPE {
 	LIBS_GARDEN_NODE,
 
 	NOTIFICATION,
-	ADD_NEW_TRAY								//without retain
+	UPDATE_GARDEN_DEVICES						//without retain
 };
 
 enum DEVICE_TYPE {
@@ -741,19 +749,185 @@ public:
 } Detail_Node;
 
 class LCD_Frame_Detail_Envi {
+private:
+	String E_S_TEMP = "..";
+	String E_S_HUMI = "..";
+	String E_S_LIGH = "...";
+	String E_S_RAIN = "...";
+	String E_S_WIND = "...";
 public:
+	int page_envi = 0;
+	String current_Envi_ID;
+
+	void get_Detail_Envi(String EnviID = "") {
+		if (EnviID != "") {
+			current_Envi_ID = EnviID;
+		}
+		DynamicJsonBuffer jsBufferCommandGetDetailEnvi(500);
+		JsonObject& jsCommandGetDetailEnvi = jsBufferCommandGetDetailEnvi.createObject();
+
+		jsCommandGetDetailEnvi[MES_ID] = String(micros());
+		jsCommandGetDetailEnvi[HUB_ID] = HubID;
+		jsCommandGetDetailEnvi[SOURCE] = HubID;
+		jsCommandGetDetailEnvi[DEST] = current_Envi_ID;
+		jsCommandGetDetailEnvi[TIMESTAMP] = String(now());
+		jsCommandGetDetailEnvi[CMD_T] = int(GET_DATA_ENVIROMENT_MONITOR);
+
+		String strGetDetailEnvi;
+		jsCommandGetDetailEnvi.printTo(strGetDetailEnvi);
+		Rprintln(strGetDetailEnvi);
+		Dprintf("RF <<< [%d]\r\n", strGetDetailEnvi.length());
+		Dprintln(strGetDetailEnvi);
+		delay(10);
+	}
+
 	void render() {
 		lcd.clear();
+
+		if (page_envi == 0) {
+			lcd_print("TEMP   " + E_S_TEMP + "C", LINE0, LEFT, 1);
+			lcd_print("HUMI   " + E_S_HUMI + "%", LINE1, LEFT, 1);
+			lcd_print("LIGHT  " + E_S_LIGH, LINE2, LEFT, 1);
+			lcd_print("RAIN   " + E_S_RAIN, LINE3, LEFT, 1);
+		}
+		else if (page_envi == 1) {
+			lcd_print("HUMI   " + E_S_HUMI + "%", LINE0, LEFT, 1);
+			lcd_print("LIGHT  " + E_S_LIGH, LINE1, LEFT, 1);
+			lcd_print("RAIN   " + E_S_RAIN, LINE2, LEFT, 1);
+			lcd_print("WIND   " + E_S_WIND, LINE3, LEFT, 1);
+		}
 		lcd_showTime(true);
+	}
+
+	void refresh_Detail_Envi(JsonObject& enviData) {
+		E_S_TEMP = enviData[S_TEMP].as<String>();
+		E_S_HUMI = enviData[S_HUMI].as<String>();
+		E_S_LIGH = enviData[S_LIGHT].as<String>();
+		E_S_RAIN = enviData[S_RAIN].as<String>();
+		E_S_WIND = enviData[S_WIND].as<String>();
+	}
+
+	void reset_temp_detail() {
+		E_S_TEMP = "..";
+		E_S_HUMI = "..";
+		E_S_LIGH = "...";
+		E_S_RAIN = "...";
+		E_S_WIND = "...";
 	}
 } Detail_Envi;
 
 class LCD_Frame_Detail_Tank {
+	String T_WATER_IN = "...";
+	String T_WATER_OUT = "...";
+	String T_S_WATER_LEVEL = "...";
+	String T_S_WATER_HIGH = "...";
+	String T_S_WATER_LOW = "...";
 public:
+	const int PAGE_TANK_CONTROL = 0;
+	const int PAGE_TANK_SENSOR  = 1;
+	int cursor_select = LINE1;
+	int page_tank = PAGE_TANK_CONTROL;
+	String current_Tank_ID;
+
+	void get_Detail_Tank(String TankID = "") {
+		if (TankID != "") {
+			current_Tank_ID = TankID;
+		}
+		DynamicJsonBuffer jsBufferCommandGetDetailTank(500);
+		JsonObject& jsCommandGetDetailTank = jsBufferCommandGetDetailTank.createObject();
+
+		jsCommandGetDetailTank[MES_ID] = String(micros());
+		jsCommandGetDetailTank[HUB_ID] = HubID;
+		jsCommandGetDetailTank[SOURCE] = HubID;
+		jsCommandGetDetailTank[DEST] = current_Tank_ID;
+		jsCommandGetDetailTank[TIMESTAMP] = String(now());
+		jsCommandGetDetailTank[CMD_T] = int(GET_DATA_TANK_CONTROLER);
+
+		String strGetDetailTank;
+		jsCommandGetDetailTank.printTo(strGetDetailTank);
+		Rprintln(strGetDetailTank);
+		Dprintf("RF <<< [%d]\r\n", strGetDetailTank.length());
+		Dprintln(strGetDetailTank);
+		delay(10);
+	}
+
+	void toggle_current_relay_tank() {
+		if ((page_tank == PAGE_TANK_CONTROL) && (cursor_select != LINE3)) {
+			String NodeID = current_Tank_ID;
+			String Relay;
+			String Status;
+			switch (cursor_select)
+			{
+			case LINE1:
+				Relay = "WATER_IN";
+				Status = (T_WATER_IN == ON ? OFF : ON);
+				break;
+			case LINE2:
+				Relay = "WATER_OUT";
+				Status = (T_WATER_OUT == ON ? OFF : ON);
+				break;
+			default:
+				break;
+			}
+
+			DynamicJsonBuffer jsBufferCommandControlRelayTank(500);
+			JsonObject& jsCommandControlRelayTank = jsBufferCommandControlRelayTank.createObject();
+
+			jsCommandControlRelayTank[MES_ID] = String(micros());
+			jsCommandControlRelayTank[HUB_ID] = HubID;
+			jsCommandControlRelayTank[SOURCE] = HubID;
+			jsCommandControlRelayTank[DEST] = NodeID;
+			jsCommandControlRelayTank[TIMESTAMP] = String(now());
+			jsCommandControlRelayTank[CMD_T] = int(CONTROL_TANK_CONTROLER);
+			jsCommandControlRelayTank[Relay] = Status;
+
+			String strControlRelayTank;
+			jsCommandControlRelayTank.printTo(strControlRelayTank);
+			Rprintln(strControlRelayTank);
+			Dprintf("RF <<< [%d]\r\n", strControlRelayTank.length());
+			Dprintln(strControlRelayTank);
+			delay(10);
+		}
+		else {
+			get_Detail_Tank();
+		}
+	}
+
 	void render() {
 		lcd.clear();
+
+		if (page_tank == PAGE_TANK_CONTROL) {
+			lcd_print("CONTROL TANK "+ current_Tank_ID, LINE0, LEFT, 1);
+			lcd_print("WATER_IN    " + T_WATER_IN, LINE1, LEFT, 1);
+			lcd_print("WATER_OUT    " + T_WATER_OUT, LINE2, LEFT, 1);
+			show_symbol_select(0, cursor_select);
+		}
+		else if (page_tank == PAGE_TANK_SENSOR) {
+			lcd_print("WATER_LEVEL  " + String(T_S_WATER_LEVEL), LINE0, LEFT, 1);
+			lcd_print("WATER_HIGH   " + String(T_S_WATER_HIGH), LINE1, LEFT, 1);
+			lcd_print("WATER_LOW    " + String(T_S_WATER_LOW), LINE2, LEFT, 1);
+		}
+
 		lcd_showTime(true);
 	}
+
+	void refresh_Detail_Tank(JsonObject& tankData) {
+		T_WATER_IN = tankData[MANURE].as<String>();
+		T_WATER_OUT = tankData[WATER_OUT].as<String>();
+
+		T_S_WATER_LEVEL = tankData[WATER_LEVEL].as<String>();
+		T_S_WATER_HIGH = tankData[WATER_HIGH].as<String>();
+		T_S_WATER_LOW = tankData[WATER_LOW].as<String>();
+	}
+
+	void reset_temp_detail() {
+		T_WATER_IN = "...";
+		T_WATER_OUT = "...";
+		T_S_WATER_LEVEL = "...";
+		T_S_WATER_HIGH = "...";
+		T_S_WATER_LOW = "...";
+	}
+
 } Detail_Tank;
 
 class LCD_Frame_Class {
@@ -806,6 +980,9 @@ public:
 						break;
 					case ENVIROMENT_MONITOR:
 						current_page = LCD_PAGE_DETAIL_ENVI;
+						Detail_Envi.page_envi = 0;
+						Detail_Envi.reset_temp_detail();
+						Detail_Envi.get_Detail_Envi(DevicesList.at(Main_Menu.index_Device_Selected).ID);
 						Detail_Envi.render();
 						break;
 					case TANK_CONTROLER:
@@ -952,8 +1129,9 @@ public:
 				case BT_NOBUTTON:
 					break;
 				case BT_DOWN:
-					break;
 				case BT_UP:
+					Detail_Envi.page_envi = 1 - Detail_Envi.page_envi;
+					Detail_Envi.render();
 					break;
 
 				case BT_LEFT:
@@ -1150,12 +1328,25 @@ void handle_rf_communicate() {
 
 	if (_hubID == HubID) {
 
-		//update on lcd
-		if ((LCD_Frame.current_page == LCD_PAGE_DETAIL_NODE) && (_SOURCE == Detail_Node.current_Node_ID)) {
-			Detail_Node.refresh_Detail_Node(nodeData);
-			Detail_Node.render();
-		}
+		switch (_SOURCE[0])
+		{
+			//update on lcd
+		case 'N': //node
+			if ((LCD_Frame.current_page == LCD_PAGE_DETAIL_NODE) && (_SOURCE == Detail_Node.current_Node_ID)) {
+				Detail_Node.refresh_Detail_Node(nodeData);
+				Detail_Node.render();
+			}
+			break
+				;
+		case 'E': //enviroment
+			if ((LCD_Frame.current_page == LCD_PAGE_DETAIL_ENVI) && (_SOURCE == Detail_Envi.current_Envi_ID)) {
+				Detail_Envi.refresh_Detail_Envi(nodeData);
+				Detail_Envi.render();
+			}
 
+		default:
+			break;
+		}
 
 		String nodeDataString;
 		if (_DEST == HubID) {
@@ -1592,14 +1783,17 @@ void mqtt_loop() {
 }
 
 bool mqtt_publish(String topic, String payload, bool retain) {
-	Dprintf("\r\nMQTT <<< [%d] %s\r\n", payload.length(), topic.c_str());
+	String _payload = payload;
+	_payload.trim();
+
+	digitalWrite(LED_STATUS, LOW);
+	bool ret = mqtt_client.publish(topic.c_str(), _payload.c_str(), retain);
+	digitalWrite(LED_STATUS, HIGH);
+
+	Dprintf("\r\nMQTT <<< [%d] %s\r\n", _payload.length(), topic.c_str());
 	//Dprintln(topic);
 	Dprintln(payload);
 	//Dprintln();
-
-	digitalWrite(LED_STATUS, LOW);
-	bool ret = mqtt_client.publish(topic.c_str(), payload.c_str(), retain);
-	digitalWrite(LED_STATUS, HIGH);
 	return ret;
 }
 #pragma endregion

@@ -53,7 +53,7 @@ enum COMMAND_TYPE {
 	LIBS_GARDEN_NODE,
 
 	NOTIFICATION,
-	ADD_NEW_TRAY								//without retain
+	UPDATE_GARDEN_DEVICES						//without retain
 };
 
 enum NODE_TYPE {
@@ -330,7 +330,7 @@ UPDATE_DATA_TANK_CONTROLER
 		"WATER_IN"	 : "ON",
 		"WATER_OUT"	 : "OFF",
 		
-		"WATER_LEVEL": "<PERCENT>",
+		"WATER_LEVEL": "<DISTANCE in cm>",
 		"WATER_HIGH" : "YES",
 		"WATER_LOW"	 : "NO"
 	}
