@@ -11,7 +11,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _FIRMWARE_VERSION ("0.1.23.1" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.23.2" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -897,9 +897,9 @@ public:
 		lcd.clear();
 
 		if (page_tank == PAGE_TANK_CONTROL) {
-			lcd_print("CONTROL TANK "+ current_Tank_ID, LINE0, LEFT, 1);
-			lcd_print("WATER_IN    " + T_WATER_IN, LINE1, LEFT, 1);
-			lcd_print("WATER_OUT    " + T_WATER_OUT, LINE2, LEFT, 1);
+			lcd_print("TANK "+ current_Tank_ID, LINE0, LEFT, 1);
+			lcd_print("WATER_IN  " + T_WATER_IN, LINE1, LEFT, 1);
+			lcd_print("WATER_OUT " + T_WATER_OUT, LINE2, LEFT, 1);
 			show_symbol_select(0, cursor_select);
 		}
 		else if (page_tank == PAGE_TANK_SENSOR) {
@@ -1170,6 +1170,8 @@ public:
 				break;
 			}
 		}
+
+		lcd_showTime();
 	}
 } LCD_Frame;
 #pragma endregion
@@ -1974,8 +1976,6 @@ void loop()
 		handle_serial();
 	IDLE
 		LCD_Frame.update_Frame();
-	IDLE
-		lcd_showTime();
 	IDLE
 		if (DevicesList.length() == 0) {
 			update_tray_list();
