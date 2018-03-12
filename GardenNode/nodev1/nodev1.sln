@@ -1,0 +1,33 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.27130.2010
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "nodev1", "nodev1.vcxproj", "{C5F80730-F44F-4478-BDAE-6634EFC2CA88}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SHT1x-master", "C:\Users\tdhie\Documents\Arduino\libraries\SHT1x-master\SHT1x-master.vcxitems", "{04C4860B-F510-4AD6-9E40-C18F7AD9136F}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Wire", "..\..\..\..\Program Files\Arduino\hardware\arduino\avr\libraries\Wire\Wire.vcxitems", "{9D427547-1374-4EB8-BFD6-5C248A09FAC7}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "OneWire-master", "C:\Users\tdhie\Documents\Arduino\libraries\OneWire-master\OneWire-master.vcxitems", "{72EC83E2-47B0-4722-A4FC-D9161CD2BFFB}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Time", "C:\Users\tdhie\Documents\Arduino\libraries\Time\Time.vcxitems", "{B93470E0-5CF1-4F41-99E9-B1A0F59531E6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x86 = Debug|x86
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Debug|x86.ActiveCfg = Debug|Win32
+		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Debug|x86.Build.0 = Debug|Win32
+		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Release|x86.ActiveCfg = Release|Win32
+		{C5F80730-F44F-4478-BDAE-6634EFC2CA88}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {AF7C016A-BA62-49E7-964C-DFCC4A6723D7}
+	EndGlobalSection
+EndGlobal

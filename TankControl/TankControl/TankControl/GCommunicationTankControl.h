@@ -11,7 +11,7 @@
 #include <ArduinoJson.h>
 
 #define RS485					Serial1
-#define RS485_BAUDRATE			9600
+#define RS485_BAUDRATE			115200
 
 enum COMMAND_TYPE {
 	NO_COMMAND = 0, 

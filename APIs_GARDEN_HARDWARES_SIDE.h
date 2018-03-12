@@ -1,7 +1,7 @@
 ﻿#define IGNORE_THIS_FILE
 #ifndef IGNORE_THIS_FILE
 
-#define API_VERSION  "0.1.15"
+#define API_VERSION  "0.1.16"
 /*
 	v0.1.14	add COMMAND_TYPE::ADD_NEW_TRAY
 */
@@ -238,6 +238,8 @@ GET_DATA_GARDEN_NODE
 
 UPDATE_DATA_GARDEN_NODE
 	Topic: "AGRISYSTEM/<HubID>/RESPONSE/<NodeID>"
+	
+	#Trồng đất
 	{
 		"MES_ID"	 : "",
 		"HUB_ID"	 : "",
@@ -256,6 +258,26 @@ UPDATE_DATA_GARDEN_NODE
 		"S_LIGHT"	 : "<float>",
 		"S_PH"		 : "<float>",
 		"S_EC"		 : "<float>"
+	}
+
+	#Thủy canh
+	{
+		"MES_ID"	 : "",
+		"HUB_ID" : "",
+		"SOURCE" : "",
+		"DEST" : "",
+		"TIMESTAMP" : "",
+		"CMD_T" : UPDATE_DATA_GARDEN_NODE,
+		"ACTION_FROM" : "HIC0001",	//chỉ có khi response từ CONTROL_GARDEN_NODE
+		"SPRAY" : "ON",				//hiển thị trên giao diện là FAN 
+		"LIGHT" : "OFF",
+		"LED_MOSFET" : "PC45",
+
+		"S_TEMP" : "<float>",
+		"S_HUMI" : "<float>",
+		"S_LIGHT" : "<float>",
+		"S_PH" : "<float>",
+		"S_EC" : "<float>"
 	}
 #end region
 

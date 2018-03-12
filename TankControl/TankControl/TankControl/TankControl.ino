@@ -1,3 +1,6 @@
+#include <EEPROM.h>
+#include <ArduinoJson.hpp>
+#include <ArduinoJson.h>
 #include "GCommunicationTankControl.h"
 #include <SimpleKalmanFilter.h>
 #include "SR04T.h"
@@ -11,10 +14,13 @@
 #define SR04T_ECHOPIN			21// Pin to receive echo pulse
 #define SR04T_TRIGPIN			9// Pin to send trigger pulse
 
+#define EEPROM_ADDR_TANK_ID		0
+#define EEPROM_ADDR_HUB_ID		10
+
 GARDENCOMMUNICATION GC;
 String sRS485_CMD;
-String HUB_ID = "H4C37C";
-String TAN_ID = "TC1012";
+String HUB_ID = "";
+String TAN_ID = "T00000";
 
 SimpleKalmanFilter kDSensor(5, 1, 2);
 #define SR04T_SENSOR
@@ -39,6 +45,65 @@ int counter = 0;
 bool bLED_S, bLED_C;
 byte gc_cmd;
 
+String Tank_ID_Init()
+{
+	String ID;
+	char flag_nid = EEPROM.read(EEPROM_ADDR_TANK_ID);//eeprom address flag is have id in eeprom
+	//if (flag_nid != 'T')
+	{
+		EEPROM.write(0, 'T');	delay(5);
+		for (uint8_t i = 1; i <= 5; i++)
+		{
+			char id;
+			if (5 <= random(9))
+			{
+				id = random('0', '9');
+			}
+			else {
+				id = random('A', 'Z');
+			}
+			EEPROM.write(i, id);
+			delay(5);
+		}
+	}
+	for (uint8_t i = EEPROM_ADDR_TANK_ID; i <= 5; i++)
+	{
+		ID += (char)EEPROM.read(i);
+	}
+	//DEBUG.print("node ID: ");
+	//DEBUG.println(ID);
+	return ID;
+}
+String Hub_ID_Init()
+{
+	String ID;
+	char flag_nid = EEPROM.read(10);//eeprom address flag is have id in eeprom
+	if (flag_nid == 'H') {
+		ID = "H";
+		for (uint8_t i = EEPROM_ADDR_HUB_ID + 1; i <= EEPROM_ADDR_HUB_ID + 8; i++)
+		{
+			char c = (char)EEPROM.read(i);
+			if (c == 0) {
+				return ID;
+			}
+			ID += (char)EEPROM.read(i);
+		}
+	}
+	return ID;
+}
+void Save_Hub_ID(String ID)
+{
+	for (uint8_t i = EEPROM_ADDR_TANK_ID; i <= ID.length(); i++)
+	{
+		EEPROM.write(i, ID.charAt(i));
+		delay(5);
+	}
+	EEPROM.write(EEPROM_ADDR_TANK_ID + ID.length() + 1, 0);
+	delay(5);
+	HUB_ID = ID;
+}
+
+
 void setup() {
 	RS485.begin(RS485_BAUDRATE);
 	RS485.setTimeout(100);
@@ -51,6 +116,10 @@ void setup() {
 	pinMode(WATER_IN_PIN, OUTPUT);
 	
 	DEBUG.println("Loading System Information...");
+
+	TAN_ID = Tank_ID_Init();
+	HUB_ID = Hub_ID_Init();
+
 	DEBUG.print("HUB ID: "); DEBUG.println(HUB_ID);
 	DEBUG.print("My ID: "); DEBUG.println(TAN_ID);
 
@@ -94,10 +163,18 @@ void loop() {
 void RS485_Handle(String& cmd)
 {
 	/* Check HUB_ID and DEST_ID */
-	String a = GC.getString(cmd, "HUB_ID");
-	if (a != HUB_ID) return;
-	a = GC.getString(cmd, "DEST");
-	if (a != TAN_ID) return;
+	String h = GC.getString(cmd, "HUB_ID");
+	String d = GC.getString(cmd, "DEST");
+
+	if ((d = TAN_ID) && (h != HUB_ID)) {
+		if (h.charAt(0) == 'H') {
+			HUB_ID = h;
+			Save_Hub_ID(HUB_ID);
+		}
+	}
+
+	if (h != HUB_ID) return;
+	if (d != TAN_ID) return;
 
 	/* Get Command Type */
 	int cmd_t = GC.getValue(cmd, "CMD_T");// DEBUG.println(a);
@@ -140,6 +217,6 @@ void Update_TankData(void)
 	if (RS485.available()) return;
 	//root.printTo(DEBUG);
 	root.printTo(RS485);
-	DEBUG.print(iDistance);
-	DEBUG.println("   cm");
+	//DEBUG.print(iDistance);
+	//DEBUG.println("   cm");
 }

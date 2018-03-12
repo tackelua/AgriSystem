@@ -15,7 +15,7 @@
 #define __AVR_ATmega32u4__
 #define __AVR_ATmega32U4__
 #define F_CPU 16000000L
-#define ARDUINO 10802
+#define ARDUINO 10805
 #define ARDUINO_AVR_LEONARDO
 #define ARDUINO_ARCH_AVR
 #define USB_VID 0x2341
@@ -64,10 +64,10 @@ typedef void *__builtin_va_list;
 
 
 
-#include <arduino.h>
+#include <Arduino.h>
 #include <pins_arduino.h> 
-//#undef F
-//#define F(string_literal) ((const PROGMEM char *)(string_literal))
+#undef F
+#define F(string_literal) ((const PROGMEM char *)(string_literal))
 #undef PSTR
 #define PSTR(string_literal) ((const PROGMEM char *)(string_literal))
 
@@ -78,6 +78,6 @@ typedef void *__builtin_va_list;
 #define pgm_read_float(address_short) float()
 #define pgm_read_ptr(address_short)   short()
 
-#include "TankControl.ino"
+#include "nodev1.ino"
 #endif
 #endif

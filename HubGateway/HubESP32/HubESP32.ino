@@ -11,7 +11,7 @@
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
 
-#define _FIRMWARE_VERSION ("0.1.23.2" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.24.0" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -30,6 +30,7 @@ byte SELECT[8] =
 };
 
 String HubID;
+int HubType; //HUB_TYPE enum
 String MQTT_TOPIC_MAIN;		//"AGRISYSTEM/" + HubID;
 
 String mqtt_Message;
@@ -62,13 +63,21 @@ PubSubClient mqtt_client(mqtt_espClient);
 
 #define IDLE	delayMicroseconds(200);
 
+//#define LED_STATUS			LED_BUILTIN
+//#define HPIN_LIGHT			33
+//#define HPIN_FAN			25
+//#define HPIN_SPRAY			26
+//#define HPIN_COVER			-1 //virtual
+//#define HPIN_COVER_OPEN		27
+//#define HPIN_COVER_CLOSE	14
+
 #define LED_STATUS			LED_BUILTIN
 #define HPIN_LIGHT			33
 #define HPIN_FAN			25
-#define HPIN_SPRAY			26
+#define HPIN_SPRAY			14//26
 #define HPIN_COVER			-1 //virtual
 #define HPIN_COVER_OPEN		27
-#define HPIN_COVER_CLOSE	14
+#define HPIN_COVER_CLOSE	26//14
 //--
 #define HPIN_BUTTON			34
 enum BUTTON {
@@ -176,6 +185,11 @@ enum DEVICE_TYPE {
 	TANK_CONTROLER
 };
 
+enum HUB_TYPE {
+	TRONG_DAT = 1,
+	THUY_CANH
+};
+
 class Devices_Info {
 public:
 	String ID = "";
@@ -238,7 +252,7 @@ int STT_SPRAY = STT_OFF;
 int STT_COVER = STT_OFF;
 
 String getID() {
-	return "H4C37C";
+	//return "H4C37C";
 	uint8_t baseMac[6];
 	// Get MAC address for WiFi station
 	esp_read_mac(baseMac, ESP_MAC_WIFI_STA);
@@ -618,14 +632,10 @@ public:
 			switch (cursor_select)
 			{
 			case LINE0:
-				Relay = "MANURE";
-				Status = (N_MANURE == ON ? OFF : ON);
-				break;
-			case LINE1:
 				Relay = "SPRAY";
 				Status = (N_SPRAY == ON ? OFF : ON);
 				break;
-			case LINE2:
+			case LINE1:
 				Relay = "LIGHT";
 				Status = (N_LIGHT == ON ? OFF : ON);
 				break;
@@ -697,25 +707,46 @@ public:
 
 	void render() {
 		lcd.clear();
-
-		if (page_node == PAGE_NODE_CONTROL) {
-			lcd_print("MANURE   " + N_MANURE, LINE0, LEFT, 1);
-			lcd_print("SPRAY    " + N_SPRAY, LINE1, LEFT, 1);
-			lcd_print("LIGHT    " + N_LIGHT, LINE2, LEFT, 1);
-			lcd_print("LED_MOS  " + N_LED_MOSFET.substring(2) + "%", LINE3, LEFT, 1);
-			show_symbol_select(0, cursor_select);
+		if (HubType == HUB_TYPE::TRONG_DAT) {
+			if (page_node == PAGE_NODE_CONTROL) {
+				lcd_print("MANURE   " + N_MANURE, LINE0, LEFT, 1);
+				lcd_print("SPRAY    " + N_SPRAY, LINE1, LEFT, 1);
+				lcd_print("LIGHT    " + N_LIGHT, LINE2, LEFT, 1);
+				lcd_print("LED_MOS  " + N_LED_MOSFET.substring(2) + "%", LINE3, LEFT, 1);
+				show_symbol_select(0, cursor_select);
+			}
+			else if (page_node == PAGE_NODE_SENSOR1) {
+				lcd_print("TEMP   " + String(N_S_TEMP) + "C", LINE0, LEFT, 1);
+				lcd_print("HUMI   " + String(N_S_HUMI) + "%", LINE1, LEFT, 1);
+				lcd_print("LIGHT  " + String(N_S_LIGHT), LINE2, LEFT, 1);
+				lcd_print("PH     " + String(N_S_PH), LINE3, LEFT, 1);
+			}
+			else if (page_node == PAGE_NODE_SENSOR2) {
+				lcd_print("HUMI   " + String(N_S_HUMI) + "%", LINE0, LEFT, 1);
+				lcd_print("LIGHT  " + String(N_S_LIGHT), LINE1, LEFT, 1);
+				lcd_print("PH     " + String(N_S_PH), LINE2, LEFT, 1);
+				lcd_print("EC     " + String(N_S_EC), LINE3, LEFT, 1);
+			}
 		}
-		else if (page_node == PAGE_NODE_SENSOR1) {
-			lcd_print("TEMP   " + String(N_S_TEMP) + "C", LINE0, LEFT, 1);
-			lcd_print("HUMI   " + String(N_S_HUMI) + "%", LINE1, LEFT, 1);
-			lcd_print("LIGHT  " + String(N_S_LIGHT), LINE2, LEFT, 1);
-			lcd_print("PH     " + String(N_S_PH), LINE3, LEFT, 1);
-		}
-		else if (page_node == PAGE_NODE_SENSOR2) {
-			lcd_print("HUMI   " + String(N_S_HUMI) + "%", LINE0, LEFT, 1);
-			lcd_print("LIGHT  " + String(N_S_LIGHT), LINE1, LEFT, 1);
-			lcd_print("PH     " + String(N_S_PH), LINE2, LEFT, 1);
-			lcd_print("EC     " + String(N_S_EC), LINE3, LEFT, 1);
+		else if (HubType == HUB_TYPE::THUY_CANH) {
+			if (page_node == PAGE_NODE_CONTROL) {
+				lcd_print("FAN      " + N_SPRAY, LINE0, LEFT, 1);
+				lcd_print("LIGHT    " + N_LIGHT, LINE1, LEFT, 1);
+				lcd_print("LED_MOS  " + N_LED_MOSFET.substring(2) + "%", LINE2, LEFT, 1);
+				show_symbol_select(0, cursor_select);
+			}
+			else if (page_node == PAGE_NODE_SENSOR1) {
+				lcd_print("TEMP   " + String(N_S_TEMP) + "C", LINE0, LEFT, 1);
+				lcd_print("HUMI   " + String(N_S_HUMI) + "%", LINE1, LEFT, 1);
+				lcd_print("LIGHT  " + String(N_S_LIGHT), LINE2, LEFT, 1);
+				lcd_print("PH     " + String(N_S_PH), LINE3, LEFT, 1);
+			}
+			else if (page_node == PAGE_NODE_SENSOR2) {
+				lcd_print("HUMI   " + String(N_S_HUMI) + "%", LINE0, LEFT, 1);
+				lcd_print("LIGHT  " + String(N_S_LIGHT), LINE1, LEFT, 1);
+				lcd_print("PH     " + String(N_S_PH), LINE2, LEFT, 1);
+				lcd_print("EC     " + String(N_S_EC), LINE3, LEFT, 1);
+			}
 		}
 
 		lcd_showTime(true);
@@ -1901,6 +1932,7 @@ bool update_tray_list(bool force = false) {
 		DevicesList.clear();
 		String hid = DevicesListJsObj[HUB_ID].asString();
 		String hname = DevicesListJsObj[HUB_NAME].asString();
+		HubType = DevicesListJsObj["HUB_TYPE"].as<int>();
 		Devices_Info _Hub_Info(hid, hname);
 		DevicesList.push_front(_Hub_Info);
 		if (hid == "") {
