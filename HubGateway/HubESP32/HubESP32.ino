@@ -12,9 +12,10 @@
 #include <ArduinoJson.h>
 #include <QList.h>
 
-#define _FIRMWARE_VERSION ("0.1.24.1" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.25 " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
+WiFiMulti wifiMulti;
 
 LiquidCrystal_I2C lcd(0x3f, 20, 4);
 #define SB_SELECT	0 //symbol select
@@ -62,7 +63,7 @@ PubSubClient mqtt_client(mqtt_espClient);
 #define Rprintf		RF.printf
 #define Rflush		RF.flush
 
-#define IDLE	delayMicroseconds(200);
+#define IDLE	delay(1);
 
 //#define LED_STATUS			LED_BUILTIN
 //#define HPIN_LIGHT			33
@@ -1538,6 +1539,18 @@ void smart_config() {
 }
 void wifi_init() {
 	Dprintln(F("\r\nConnecting to WiFi"));
+	wifiMulti.addAP("DTU");
+	wifiMulti.addAP("MIC");
+	wifiMulti.addAP("IoT Wifi", "mic@dtu12345678()");
+	if (wifiMulti.run() == WL_CONNECTED) {
+		Serial.println("");
+		Serial.println("WiFi connected");
+		Serial.println("IP address: ");
+		Serial.println(WiFi.localIP());
+	}
+	lcd_print("Connected to " + WiFi.SSID(), LINE2, MIDDLE);
+	return;
+	//============================================================
 	if (WiFi.isConnected()) {
 		return;
 	}
@@ -2001,6 +2014,8 @@ void setup()
 void loop()
 {
 	IDLE
+		wifiMulti.run();
+	IDLE
 		updateHubHardwareStatus(30000);
 	IDLE
 		updateTimeStamp(60000);
@@ -2016,4 +2031,5 @@ void loop()
 		if (DevicesList.length() == 0) {
 			update_tray_list();
 		}
+	IDLE
 }
