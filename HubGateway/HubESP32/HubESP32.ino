@@ -12,7 +12,7 @@
 #include <ArduinoJson.h>
 #include <QList.h>
 
-#define _FIRMWARE_VERSION ("0.1.26 " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.27 " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 WiFiMulti wifiMulti;
@@ -39,6 +39,9 @@ String mqtt_Message;
 String rf_Message;
 
 
+//const char* mqtt_server = "gith.cf";
+//const char* mqtt_user = "Gith";
+//const char* mqtt_password = "G12345678()";
 const char* mqtt_server = "mic.duytan.edu.vn";
 const char* mqtt_user = "Mic@DTU2017";
 const char* mqtt_password = "Mic@DTU2017!@#";
@@ -323,6 +326,7 @@ void hardware_init() {
 	Dprintln(HubID);
 	Dprintln("Version: " + String(_FIRMWARE_VERSION));
 	Dprintln();
+	delay(1);
 }
 
 
@@ -337,38 +341,39 @@ enum LCD_Pages {
 };
 
 void lcd_print(String data, int line, int align = MIDDLE, int padding_left = 0) {
+	String _data = data;
 	if (line >= 4) { return; }
 	String data_fullLine;
 	int numSpace = 0;
 	switch (align)
 	{
 	case LEFT:
-		data_fullLine = data;
-		numSpace = 20 - data.length();
+		data_fullLine = _data;
+		numSpace = 20 - _data.length();
 		for (int i = 0; i < numSpace; i++)
 		{
 			data_fullLine += " ";
 		}
 		break;
 	case MIDDLE:
-		numSpace = (20 - data.length()) / 2;
+		numSpace = (20 - _data.length()) / 2;
 		for (int i = 0; i < numSpace; i++)
 		{
 			data_fullLine += " ";
 		}
-		data_fullLine += data;
+		data_fullLine += _data;
 		for (int i = 0; i < numSpace; i++)
 		{
 			data_fullLine += " ";
 		}
 		break;
 	case RIGHT:
-		numSpace = 20 - data.length();
+		numSpace = 20 - _data.length();
 		for (int i = 0; i < numSpace; i++)
 		{
 			data_fullLine += " ";
 		}
-		data_fullLine += data;
+		data_fullLine += _data;
 		break;
 	default:
 		break;
@@ -395,6 +400,7 @@ void lcd_init() {
 	lcd_print("AGRISYSTEM/" + HubID, LINE0, MIDDLE);
 	lcd_print("IoT Labs - MIC@DTU", LINE1, MIDDLE);
 	lcd_print("Starting", LINE2, MIDDLE);
+	delay(1);
 }
 
 void lcd_select(int col, int row) {
@@ -417,7 +423,7 @@ void lcd_showMainMenu() {
 	lcd_print("NODE ID 1", LINE1, LEFT, 1);
 	lcd_print("NODE ID 2NODE ID 2NODE ID 2NODE ID 2", LINE2, LEFT, 1);
 	//lcd_print("Vườn hoa sữa", LINE3, LEFT, 1);
-
+	delay(1);
 }
 
 void lcd_showTime(bool force = false) {
@@ -433,6 +439,7 @@ void lcd_showTime(bool force = false) {
 		t = millis();
 		lcd_showTime(true);
 	}
+	delay(1);
 }
 void show_symbol_select(int col, int row) {
 	lcd.setCursor(col, row);
@@ -1204,6 +1211,7 @@ public:
 		}
 
 		lcd_showTime();
+		delay(1);
 	}
 } LCD_Frame;
 #pragma endregion
@@ -1393,6 +1401,7 @@ void handle_rf_communicate() {
 		}
 		mqtt_publish(MQTT_TOPIC_MAIN + "/" RESPONSE "/" + _SOURCE, nodeDataString, true);
 	}
+	delay(1);
 }
 
 void handle_serial() {
@@ -1405,6 +1414,7 @@ void handle_serial() {
 		Dprintln(s);
 		delay(10);
 	}
+	delay(1);
 }
 
 int map_value_to_button(int val) {
@@ -1539,15 +1549,21 @@ void smart_config() {
 }
 void wifi_init() {
 	Dprintln(F("\r\nConnecting to WiFi"));
-	wifiMulti.addAP("DTU");
-	wifiMulti.addAP("MIC");
+	wifiMulti.addAP("GB", "12345678()");
+	wifiMulti.addAP("Gith", "12345678()");
 	wifiMulti.addAP("IoT Wifi", "mic@dtu12345678()");
+	wifiMulti.addAP("MIC");
+	wifiMulti.addAP("DTU");
 	if (wifiMulti.run() == WL_CONNECTED) {
-		Serial.println("");
-		Serial.println("WiFi connected");
-		Serial.println("IP address: ");
-		Serial.println(WiFi.localIP());
-		lcd_print("Connected to " + WiFi.SSID(), LINE2, MIDDLE);
+		WiFi.printDiag(DEBUG);
+		Dprintln();
+		Dprintln("WiFi connected");
+		Dprintln("IP address: ");
+		Dprintln(WiFi.localIP());
+		String ssid = WiFi.SSID();
+		Dprint("ssid = ");
+		Dprintln(ssid);
+		lcd_print(ssid, LINE2, MIDDLE);
 		return;
 	}
 	else {
@@ -1624,6 +1640,7 @@ String http_request(String host, uint16_t port = 80, String url = "/") {
 			client.stop();
 			return "";
 		}
+		delay(1);
 	}
 
 	// Read all the lines of the reply from server and print them to Serial
@@ -1804,9 +1821,13 @@ void mqtt_reconnect() {  // Loop until we're reconnected
 			Dprintln(F("connected"));
 			String h_online = "{\"HUB_ID\":\"" + HubID + "\",\"STATUS\":\"ONLINE\"}";
 			mqtt_client.publish(topic_HUBSTATUS.c_str(), h_online.c_str(), true);
-			mqtt_client.subscribe((MQTT_TOPIC_MAIN + "/" REQUEST "/#").c_str());
+
+			String request = MQTT_TOPIC_MAIN + "/" REQUEST "/#";
+			mqtt_client.subscribe(request.c_str());
+
 			String libs = MQTT_TOPIC_MAIN + "/LIBS/#";
 			mqtt_client.subscribe(libs.c_str());
+
 			String notify = MQTT_TOPIC_MAIN + "/NOTIFY/HUB";
 			mqtt_client.subscribe(notify.c_str());
 		}
@@ -1828,6 +1849,7 @@ void mqtt_init() {
 	rf_Message.reserve(MQTT_MAX_PACKET_SIZE);
 	mqtt_client.setServer(mqtt_server, mqtt_port);
 	mqtt_client.setCallback(mqtt_callback);
+	delay(1);
 }
 
 void mqtt_loop() {
@@ -1836,6 +1858,7 @@ void mqtt_loop() {
 		mqtt_reconnect();
 	}
 	mqtt_client.loop();
+	delay(1);
 }
 
 bool mqtt_publish(String topic, String payload, bool retain) {
@@ -1850,6 +1873,12 @@ bool mqtt_publish(String topic, String payload, bool retain) {
 	//Dprintln(topic);
 	Dprintln(payload);
 	//Dprintln();
+	if (ret) {
+		Dprintln("OK");
+	}
+	else {
+		Dprintln("Fail");
+	}
 	return ret;
 }
 #pragma endregion
@@ -1858,10 +1887,12 @@ bool mqtt_publish(String topic, String payload, bool retain) {
 
 #pragma region TASKS
 void updateTimeStamp(unsigned long interval = 0) {
+	delay(1);
 	static unsigned long t_pre_update = 0;
 	static bool wasSync = false;
 	if (interval == 0) {
 		{
+			Dprintln(F("Update timestamp"));
 			String strTimeStamp = http_request("date.jsontest.com");
 			Dprintln(strTimeStamp);
 			DynamicJsonBuffer timestamp(500);
@@ -1907,6 +1938,7 @@ void updateTimeStamp(unsigned long interval = 0) {
 	if (!wasSync) {
 		updateTimeStamp();
 	}
+	delay(1);
 }
 
 int wifi_quality() {
@@ -1939,6 +1971,7 @@ void updateHubHardwareStatus(unsigned long interval = 5000) {
 		String dataRelayHub;
 		mqtt_publish(MQTT_TOPIC_MAIN + "/" RESPONSE, strHubHardwareStatus, true);
 	}
+	delay(1);
 }
 
 bool update_tray_list(bool force = false) {
@@ -1947,6 +1980,7 @@ bool update_tray_list(bool force = false) {
 		return true;
 	}
 
+	delay(1);
 	String _devices_List = http_request("mic.duytan.edu.vn", 88, "/api/GetAllHubDevices/HUB_ID=" + HubID);
 
 	DynamicJsonBuffer jsonBufferDevicesList(10000);
@@ -2019,23 +2053,17 @@ void setup()
 
 void loop()
 {
-	IDLE
-		wifiMulti.run();
-	IDLE
-		updateHubHardwareStatus(30000);
-	IDLE
-		updateTimeStamp(60000);
-	IDLE
-		mqtt_loop();
-	IDLE
-		handle_rf_communicate();
-	IDLE
-		handle_serial();
-	IDLE
-		LCD_Frame.update_Frame();
-	IDLE
-		if (DevicesList.length() == 0) {
-			update_tray_list();
-		}
-	IDLE
+	if (wifiMulti.run() != WL_CONNECTED) {
+		Serial.println("WiFi not connected!");
+		delay(1000);
+	}
+	updateHubHardwareStatus(30000);
+	updateTimeStamp(3600000);
+	mqtt_loop();
+	handle_rf_communicate();
+	handle_serial();
+	LCD_Frame.update_Frame();
+	if (DevicesList.length() == 0) {
+		update_tray_list();
+	}
 }
