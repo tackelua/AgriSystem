@@ -12,7 +12,7 @@
 #include <ArduinoJson.h>
 #include <QList.h>
 
-#define _FIRMWARE_VERSION ("0.1.25 " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.26 " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 WiFiMulti wifiMulti;
@@ -1547,8 +1547,14 @@ void wifi_init() {
 		Serial.println("WiFi connected");
 		Serial.println("IP address: ");
 		Serial.println(WiFi.localIP());
+		lcd_print("Connected to " + WiFi.SSID(), LINE2, MIDDLE);
+		return;
 	}
-	lcd_print("Connected to " + WiFi.SSID(), LINE2, MIDDLE);
+	else {
+		lcd_print("NO WIFI", LINE2, MIDDLE);
+		lcd_print("Start SmartConfig", LINE3, MIDDLE);
+		smart_config();
+	}
 	return;
 	//============================================================
 	if (WiFi.isConnected()) {
