@@ -391,7 +391,7 @@ Nội dung tùy
       "AUTO_STATUS"		: 1,
 	  "INTERVAL_UPDATE"	: int(second),
 	  "SCHELDULE_SPRAY"	: "21:00:00_21:10:00",
-	  "SCHELDULE_LIGHT"	: "21:00:00_21:10:00, ..." //ThờiGian-bật_Số-phút-bật
+	  "SCHELDULE_LIGHT"	: "21:00:00_21:10:00, ..." //ThờiGian-bật_Số-phút-bật, check LIGHT_MIN
    }
 
 - HUB nhận được sẽ chuyển về NODE

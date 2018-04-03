@@ -1,17 +1,18 @@
 ﻿#pragma region DECLARATION
 
-#include <QList.h>
+#include <WiFi.h>
+#include <WiFiMulti.h>
+#include <WiFiClient.h>
 #include <TimeLib.h>
 #include <Time.h>
 #include <esp_system.h>
-#include <WiFiClient.h>
-#include <WiFi.h>
-#include <PubSubClient.h>
-#include <ArduinoJson.h>
 #include <Wire.h> 
 #include <LiquidCrystal_I2C.h>
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
+#include <QList.h>
 
-#define _FIRMWARE_VERSION ("0.1.24.0" " " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.24.1" " " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 
@@ -321,8 +322,6 @@ void hardware_init() {
 	Dprintln(HubID);
 	Dprintln("Version: " + String(_FIRMWARE_VERSION));
 	Dprintln();
-	WiFi.printDiag(DEBUG);
-	Dprintln();
 }
 
 
@@ -388,7 +387,8 @@ void lcd_print(String data, int line, int align = MIDDLE, int padding_left = 0) 
 }
 
 void lcd_init() {
-	lcd.begin(21, 22);
+	//lcd.begin(21, 22);
+	lcd.begin();
 	lcd.createChar(SB_SELECT, SELECT);
 	lcd.backlight();
 	lcd_print("AGRISYSTEM/" + HubID, LINE0, MIDDLE);
@@ -855,7 +855,7 @@ class LCD_Frame_Detail_Tank {
 	String T_S_WATER_LOW = "...";
 public:
 	const int PAGE_TANK_CONTROL = 0;
-	const int PAGE_TANK_SENSOR  = 1;
+	const int PAGE_TANK_SENSOR = 1;
 	int cursor_select = LINE1;
 	int page_tank = PAGE_TANK_CONTROL;
 	String current_Tank_ID;
@@ -928,7 +928,7 @@ public:
 		lcd.clear();
 
 		if (page_tank == PAGE_TANK_CONTROL) {
-			lcd_print("TANK "+ current_Tank_ID, LINE0, LEFT, 1);
+			lcd_print("TANK " + current_Tank_ID, LINE0, LEFT, 1);
 			lcd_print("WATER_IN  " + T_WATER_IN, LINE1, LEFT, 1);
 			lcd_print("WATER_OUT " + T_WATER_OUT, LINE2, LEFT, 1);
 			show_symbol_select(0, cursor_select);
@@ -1369,13 +1369,14 @@ void handle_rf_communicate() {
 				Detail_Node.refresh_Detail_Node(nodeData);
 				Detail_Node.render();
 			}
-			break
-				;
+			break;
+			;
 		case 'E': //enviroment
 			if ((LCD_Frame.current_page == LCD_PAGE_DETAIL_ENVI) && (_SOURCE == Detail_Envi.current_Envi_ID)) {
 				Detail_Envi.refresh_Detail_Envi(nodeData);
 				Detail_Envi.render();
 			}
+			break;
 
 		default:
 			break;
@@ -1540,10 +1541,13 @@ void wifi_init() {
 	if (WiFi.isConnected()) {
 		return;
 	}
-	WiFi.begin("IoT Wifi", "mic@dtu12345678()");
-	WiFi.waitForConnectResult();
+	WiFi.begin("DTU");
+	WiFi.printDiag(DEBUG);
+	Dprintln();
+	lcd_print("Connect to " + WiFi.SSID(), LINE2, MIDDLE);
 	ulong t = millis();
 	while (1) {
+		WiFi.waitForConnectResult();
 		if (WiFi.isConnected()) {
 			break;
 		}
