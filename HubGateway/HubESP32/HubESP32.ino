@@ -12,7 +12,7 @@
 #include <ArduinoJson.h>
 #include <QList.h>
 
-#define _FIRMWARE_VERSION ("0.1.27 " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.28 " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 WiFiMulti wifiMulti;
@@ -39,17 +39,16 @@ String mqtt_Message;
 String rf_Message;
 
 
-//const char* mqtt_server = "gith.cf";
-//const char* mqtt_user = "Gith";
-//const char* mqtt_password = "G12345678()";
-const char* mqtt_server = "mic.duytan.edu.vn";
-const char* mqtt_user = "Mic@DTU2017";
-const char* mqtt_password = "Mic@DTU2017!@#";
+const char* mqtt_server = "gith.cf";
+const char* mqtt_user = "Gith";
+const char* mqtt_password = "G12345678()";
+//const char* mqtt_server = "mic.duytan.edu.vn";
+//const char* mqtt_user = "Mic@DTU2017";
+//const char* mqtt_password = "Mic@DTU2017!@#";
 const uint16_t mqtt_port = 1883;
 
 WiFiClient mqtt_espClient;
-//PubSubClient mqtt_client(mqtt_espClient);
-PubSubClient mqtt_client(mqtt_server, mqtt_port, mqtt_callback, mqtt_espClient);
+PubSubClient mqtt_client(mqtt_espClient);
 
 
 #define DB_BAUDRATE	921600
@@ -350,14 +349,14 @@ void lcd_print(String data, int line, int align = MIDDLE, int padding_left = 0) 
 	{
 	case LEFT:
 		data_fullLine = _data;
-		numSpace = 20 - _data.length();
+		numSpace = 20 - (int)_data.length();
 		for (int i = 0; i < numSpace; i++)
 		{
 			data_fullLine += " ";
 		}
 		break;
 	case MIDDLE:
-		numSpace = (20 - _data.length()) / 2;
+		numSpace = (20 - (int)_data.length()) / 2;
 		for (int i = 0; i < numSpace; i++)
 		{
 			data_fullLine += " ";
@@ -369,7 +368,7 @@ void lcd_print(String data, int line, int align = MIDDLE, int padding_left = 0) 
 		}
 		break;
 	case RIGHT:
-		numSpace = 20 - _data.length();
+		numSpace = 20 - (int)_data.length();
 		for (int i = 0; i < numSpace; i++)
 		{
 			data_fullLine += " ";
@@ -1549,13 +1548,9 @@ void smart_config() {
 	Dprintln(WiFi.localIP());
 }
 void wifi_init() {
-	WiFi.setAutoConnect(true);
-	WiFi.setAutoReconnect(true);
-	WiFi.mode(WIFI_STA);
-
 	Dprintln(F("\r\nConnecting to WiFi"));
-	wifiMulti.addAP("GB", "12345678()");
-	wifiMulti.addAP("Gith", "12345678()");
+	//wifiMulti.addAP("GB", "12345678()");
+	//wifiMulti.addAP("Gith", "12345678()");
 	wifiMulti.addAP("IoT Wifi", "mic@dtu12345678()");
 	wifiMulti.addAP("MIC");
 	wifiMulti.addAP("DTU");
@@ -1822,7 +1817,7 @@ void mqtt_reconnect() {  // Loop until we're reconnected
 		//boolean connect(const char* id, const char* willTopic, uint8_t willQos, boolean willRetain, const char* willMessage);
 		String h_offline = "{\"HUB_ID\":\"" + HubID + "\",\"STATUS\":\"OFFLINE\"}";
 		String topic_HUBSTATUS = MQTT_TOPIC_MAIN + "/STATUS";
-		if (mqtt_client.connect(HubID.c_str(), mqtt_user, mqtt_password, topic_HUBSTATUS.c_str(), 0, true, h_offline.c_str())) {
+		if (mqtt_client.connect(HubID.c_str(), mqtt_user, mqtt_password, topic_HUBSTATUS.c_str(), MQTTQOS0, true, h_offline.c_str())) {
 			Dprintln(F("connected"));
 			String h_online = "{\"HUB_ID\":\"" + HubID + "\",\"STATUS\":\"ONLINE\"}";
 			mqtt_client.publish(topic_HUBSTATUS.c_str(), h_online.c_str(), true);
@@ -1846,52 +1841,50 @@ void mqtt_reconnect() {  // Loop until we're reconnected
 			delay(500);
 		}
 	}
+	mqtt_client.loop();
 }
 
 void mqtt_init() {
 	//http.setReuse(true);
 	mqtt_Message.reserve(MQTT_MAX_PACKET_SIZE); //tao buffer khoang trong cho mqtt_Message
 	rf_Message.reserve(MQTT_MAX_PACKET_SIZE);
-	//mqtt_client.setServer(mqtt_server, mqtt_port);
-	//mqtt_client.setCallback(mqtt_callback);
-	mqtt_reconnect();
+	mqtt_client.setServer(mqtt_server, mqtt_port);
+	mqtt_client.setCallback(mqtt_callback);
 	delay(1);
 }
 
 void mqtt_loop() {
-	if (!mqtt_client.connected()) {
+	if (!mqtt_client.loop()) {
 		delay(1000);
 		mqtt_reconnect();
 	}
-	mqtt_client.loop();
 	delay(1);
 }
 
 bool mqtt_publish(String topic, String payload, bool retain) {
-	//String h_offline = "{\"HUB_ID\":\"" + HubID + "\",\"STATUS\":\"OFFLINE\"}";
-	//String topic_HUBSTATUS = MQTT_TOPIC_MAIN + "/STATUS";
-	//mqtt_client.setServer(mqtt_server, mqtt_port);
-	//boolean c = mqtt_client.connect(HubID.c_str(), mqtt_user, mqtt_password, topic_HUBSTATUS.c_str(), 0, true, h_offline.c_str());
-	//Serial.println(c);
-
+	String _topic = topic;
 	String _payload = payload;
 	_payload.trim();
+	Dprintf("\r\nMQTT <<< [%d] %s\r\n", _payload.length(), _topic.c_str());
+	Dprintln(_payload);
 
-	digitalWrite(LED_STATUS, LOW);
-	bool ret = mqtt_client.publish(topic.c_str(), _payload.c_str(), retain);
-	digitalWrite(LED_STATUS, HIGH);
-
-	Dprintf("\r\nMQTT <<< [%d] %s\r\n", _payload.length(), topic.c_str());
-	//Dprintln(topic);
-	Dprintln(payload);
-	//Dprintln();
-	if (ret) {
-		Dprintln("OK");
+	if (mqtt_client.connected()) {
+		digitalWrite(LED_STATUS, LOW);
+		bool ret = mqtt_client.publish(_topic.c_str(), _payload.c_str(), retain);
+		digitalWrite(LED_STATUS, HIGH);
+		if (ret) {
+			Dprintln("OK");
+		}
+		else {
+			Dprintln("Fail");
+			Dprintln(mqtt_client.state());
+		}
+		return ret;
 	}
 	else {
-		Dprintln("Fail");
+		Dprintln("MQTT no connection");
+		return false;
 	}
-	return ret;
 }
 #pragma endregion
 
@@ -2035,32 +2028,32 @@ void setup()
 {
 	delay(1000);
 	hardware_init();
-	//lcd_init();
+	lcd_init();
 
 	wifi_init();
-	//updateTimeStamp();
+	updateTimeStamp();
 
 	mqtt_init();
-	//lcd_print("WiFi connected", LINE2, MIDDLE);
-	//lcd_print(WiFi.localIP().toString(), LINE3, MIDDLE);
-	//
-	//lcd_showMainMenu();
-	//
-	//if (update_tray_list()) {
-	//	Dprintln("DevicesList_length = " + String(DevicesList.length()));
-	//	//LCD_Frame.Main_Menu.init(DevicesList.at(0), lcd_currsor_coordinate(0, 0));
-	//	LCD_Frame.current_page = LCD_PAGE_MAIN_MENU;
-	//	Main_Menu.render();
-	//}
-	//else {
-	//	Dprintln("ERR#4353 No Hub on Server");
-	//	lcd.clear();
-	//	lcd_print("AGRISYSTEM-IoTLab", LINE0, MIDDLE, 0);
-	//	lcd_print(String("HID = ") + HubID, LINE2, MIDDLE, 0);
-	//}
-	//
-	//RF.begin(RF_BAUDRATE);
-	//RF.setTimeout(200);
+	lcd_print("WiFi connected", LINE2, MIDDLE);
+	lcd_print(WiFi.localIP().toString(), LINE3, MIDDLE);
+
+	lcd_showMainMenu();
+
+	if (update_tray_list()) {
+		Dprintln("DevicesList_length = " + String(DevicesList.length()));
+		//LCD_Frame.Main_Menu.init(DevicesList.at(0), lcd_currsor_coordinate(0, 0));
+		LCD_Frame.current_page = LCD_PAGE_MAIN_MENU;
+		Main_Menu.render();
+	}
+	else {
+		Dprintln("ERR#4353 No Hub on Server");
+		lcd.clear();
+		lcd_print("AGRISYSTEM-IoTLab", LINE0, MIDDLE, 0);
+		lcd_print(String("HID = ") + HubID, LINE2, MIDDLE, 0);
+	}
+
+	RF.begin(RF_BAUDRATE);
+	RF.setTimeout(200);
 }
 
 void loop()
@@ -2069,13 +2062,13 @@ void loop()
 		Serial.println("WiFi not connected!");
 		delay(1000);
 	}
-	updateHubHardwareStatus(5000);
-	//updateTimeStamp(3600000);
+	updateHubHardwareStatus(30000);
+	updateTimeStamp(3600000);
 	mqtt_loop();
-	//handle_rf_communicate();
-	//handle_serial();
-	//LCD_Frame.update_Frame();
-	//if (DevicesList.length() == 0) {
-	//	update_tray_list();
-	//}
+	handle_rf_communicate();
+	handle_serial();
+	LCD_Frame.update_Frame();
+	if (DevicesList.length() == 0) {
+		update_tray_list();
+	}
 }
