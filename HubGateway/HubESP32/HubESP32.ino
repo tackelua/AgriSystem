@@ -12,7 +12,7 @@
 #include <ArduinoJson.h>
 #include <QList.h>
 
-#define _FIRMWARE_VERSION ("0.1.28 " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.29 " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 WiFiMulti wifiMulti;
@@ -39,12 +39,12 @@ String mqtt_Message;
 String rf_Message;
 
 
-const char* mqtt_server = "gith.cf";
-const char* mqtt_user = "Gith";
-const char* mqtt_password = "G12345678()";
-//const char* mqtt_server = "mic.duytan.edu.vn";
-//const char* mqtt_user = "Mic@DTU2017";
-//const char* mqtt_password = "Mic@DTU2017!@#";
+//const char* mqtt_server = "gith.cf";
+//const char* mqtt_user = "Gith";
+//const char* mqtt_password = "G12345678()";
+const char* mqtt_server = "mic.duytan.edu.vn";
+const char* mqtt_user = "Mic@DTU2017";
+const char* mqtt_password = "Mic@DTU2017!@#";
 const uint16_t mqtt_port = 1883;
 
 WiFiClient mqtt_espClient;
@@ -1819,7 +1819,7 @@ void mqtt_reconnect() {  // Loop until we're reconnected
 		String topic_HUBSTATUS = MQTT_TOPIC_MAIN + "/STATUS";
 		if (mqtt_client.connect(HubID.c_str(), mqtt_user, mqtt_password, topic_HUBSTATUS.c_str(), MQTTQOS0, true, h_offline.c_str())) {
 			Dprintln(F("connected"));
-			String h_online = "{\"HUB_ID\":\"" + HubID + "\",\"STATUS\":\"ONLINE\"}";
+			String h_online = "{\"HUB_ID\":\"" + HubID + "\",\"STATUS\":\"ONLINE\",\"FW_VER\":\"" + _FIRMWARE_VERSION + "\",\"WIFI\":\"" + WiFi.SSID() + "\",\"SIGNAL\":" + String(wifi_quality()) + "}";
 			mqtt_client.publish(topic_HUBSTATUS.c_str(), h_online.c_str(), true);
 
 			String request = MQTT_TOPIC_MAIN + "/" REQUEST "/#";
@@ -2054,7 +2054,27 @@ void setup()
 
 	RF.begin(RF_BAUDRATE);
 	RF.setTimeout(200);
+
+	//xTaskCreate(
+	//	TaskTestPrintToMqtt,
+	//	"test",
+	//	1000,
+	//	NULL,
+	//	1,
+	//	NULL
+	//);
 }
+
+//void TaskTestPrintToMqtt(void * patameter) {
+//	unsigned long i = 0;
+//	for (;;) {
+//		String a = "hello " + String(i++);
+//		mqtt_publish("test", a, false);
+//		Dprintln(a);
+//		vTaskDelay(1000);
+//	}
+//	vTaskDelete(NULL);
+//}
 
 void loop()
 {

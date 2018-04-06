@@ -1,7 +1,7 @@
 ﻿#define IGNORE_THIS_FILE
 #ifndef IGNORE_THIS_FILE
 
-#define API_VERSION  "0.1.16"
+#define API_VERSION  "0.1.17"
 /*
 	v0.1.14	add COMMAND_TYPE::ADD_NEW_TRAY
 */
@@ -422,7 +422,10 @@ Nội dung tùy
   + Khi HUB kết nối đến MQTT BROKER
 	{
 		"HUB_ID" : "<HubID>",
-		"STATUS" : "ONLINE"
+		"STATUS" : "ONLINE",
+		"FW_VER" : "",
+		"WIFI"   : "",
+		"SIGNAL" : (int)PERCENT
 	}
   + Khi HUB mất kết nối đển MQTT BROKER, BROKER sẽ tự động publish gói tin LWT với nội dung:
 	{
