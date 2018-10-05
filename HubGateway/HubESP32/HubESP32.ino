@@ -12,7 +12,7 @@
 #include <ArduinoJson.h>
 #include <QList.h>
 
-#define _FIRMWARE_VERSION ("0.1.29 " __DATE__ " " __TIME__)
+#define _FIRMWARE_VERSION ("0.1.30 " __DATE__ " " __TIME__)
 
 HardwareSerial Serial2(2);
 WiFiMulti wifiMulti;
@@ -418,11 +418,14 @@ void lcd_select(int col, int row) {
 }
 
 void lcd_showMainMenu() {
-	lcd.clear();
-	lcd_print("HUB STATUS", LINE0, LEFT, 1);
-	lcd_print("NODE ID 1", LINE1, LEFT, 1);
-	lcd_print("NODE ID 2NODE ID 2NODE ID 2NODE ID 2", LINE2, LEFT, 1);
+	//lcd.clear();
+	//lcd_print("HUB STATUS", LINE0, LEFT, 1);
+	//lcd_print("NODE ID 1", LINE1, LEFT, 1);
+	//lcd_print("NODE ID 2NODE ID 2NODE ID 2NODE ID 2", LINE2, LEFT, 1);
 	//lcd_print("Vườn hoa sữa", LINE3, LEFT, 1);
+	lcd.clear();
+	lcd_print("AGRISYSTEM-IoTLab", LINE0, MIDDLE, 0);
+	lcd_print(String("HID = ") + HubID, LINE2, MIDDLE, 0);
 	delay(1);
 }
 
@@ -1350,11 +1353,10 @@ void handle_rf_communicate() {
 		if (++number_rf_fail > 5) {
 			number_rf_fail = 0;
 			Dprintln(F("RESET RF SERIAL"));
-			//RF.end();
-			//delay(1);
-			//RF.begin(RF_BAUDRATE);
-			//RF.flush();
-			ESP.deepSleep(100000);
+			RF.flush();
+			RF.end();
+			RF.begin(RF_BAUDRATE);
+			//ESP.deepSleep(100000);
 		}
 		Dprintln();
 		return;
@@ -1403,6 +1405,57 @@ void handle_rf_communicate() {
 	}
 	delay(1);
 }
+
+void update_node_data(unsigned long interval) {
+	if (DevicesList.length() <= 1) { //ko co node nao
+		return;
+	}
+	static unsigned long t = millis();
+	if ((millis() - t) > interval) {
+		t = millis();
+		static int node_index = 0;
+		if (++node_index > DevicesList.length()) {
+			node_index = 1; //DevicesList[0] = HUB, first node is 1
+		/*
+			{
+				"MES_ID"	 : "",
+				"HUB_ID"	 : "",
+				"SOURCE"	 : "",
+				"DEST"		 : "",
+				"TIMESTAMP"  : "",
+				"CMD_T"		 : GET_DATA_GARDEN_NODE
+			}
+		*/
+			DynamicJsonBuffer NodeGetData(500);
+			JsonObject& jsNodeGetData = NodeGetData.createObject();
+			jsNodeGetData[MES_ID] = String(millis());
+			jsNodeGetData[HUB_ID] = HubID;
+			jsNodeGetData[SOURCE] = HubID;
+			jsNodeGetData[DEST] = DevicesList.at(node_index).ID;
+			jsNodeGetData[TIMESTAMP] = String(now());
+			bool allow = false;
+			if (DevicesList.at(node_index).Type == GARDEN_NODE) {
+				jsNodeGetData[CMD_T] = (int)GET_DATA_GARDEN_NODE;
+				allow = true;
+			}
+			if (DevicesList.at(node_index).Type == TANK_CONTROLER) {
+				jsNodeGetData[CMD_T] = (int)GET_DATA_TANK_CONTROLER;
+				allow = true;
+			}
+
+			if (allow) {
+				String strNodeGetData;
+				jsNodeGetData.printTo(strNodeGetData);
+
+				Rprintln(strNodeGetData);
+				Dprintf("RF <<< [%d]\r\n", strNodeGetData.length());
+				Dprintln(strNodeGetData);
+				delay(10);
+			}
+		}
+	}
+}
+
 
 void handle_serial() {
 	if (Serial.available()) {
@@ -1700,6 +1753,10 @@ void parseJsonMainFromServer(String& json) {
 			else if (jsCMD_T == GET_DATA_GARDEN_HUB) {
 				upload_relay_hub_status();
 			}
+			else if (jsCMD_T == UPDATE_GARDEN_DEVICES) {
+				extern bool update_tray_list(bool force);
+				update_tray_list(true);
+			}
 		}
 		else if (jsDEST != SERVER) {
 			Rprintln(json);
@@ -1900,7 +1957,8 @@ void updateTimeStamp(unsigned long interval = 0) {
 			Dprintln(F("Update timestamp"));
 			String strTimeStamp = http_request("date.jsontest.com");
 			Dprintln(strTimeStamp);
-			DynamicJsonBuffer timestamp(500);
+			//DynamicJsonBuffer timestamp(500);
+			StaticJsonBuffer<500> timestamp;
 			JsonObject& jsTimeStamp = timestamp.parseObject(strTimeStamp);
 			if (jsTimeStamp.success()) {
 				String tt = jsTimeStamp["milliseconds_since_epoch"].asString();
@@ -1920,7 +1978,8 @@ void updateTimeStamp(unsigned long interval = 0) {
 
 		String strTimeStamp = http_request("mic.duytan.edu.vn", 88, "/api/GetUnixTime");
 		Dprintln(strTimeStamp);
-		DynamicJsonBuffer timestamp(500);
+		//DynamicJsonBuffer timestamp(500);
+		StaticJsonBuffer<500> timestamp;
 		JsonObject& jsTimeStamp = timestamp.parseObject(strTimeStamp);
 		if (jsTimeStamp.success()) {
 			time_t ts = String(jsTimeStamp["UNIX_TIME"].asString()).toInt();
@@ -1959,7 +2018,8 @@ void updateHubHardwareStatus(unsigned long interval = 5000) {
 	static unsigned long t = millis();
 	if ((millis() - t) > interval) {
 		t = millis();
-		DynamicJsonBuffer HubHardwareStatus(500);
+		//DynamicJsonBuffer HubHardwareStatus(500);
+		StaticJsonBuffer<500> HubHardwareStatus;
 		JsonObject& jsHubHardwareStatus = HubHardwareStatus.createObject();
 		jsHubHardwareStatus[MES_ID] = String(millis());
 		jsHubHardwareStatus[HUB_ID] = HubID;
@@ -2039,18 +2099,16 @@ void setup()
 
 	lcd_showMainMenu();
 
-	if (update_tray_list()) {
-		Dprintln("DevicesList_length = " + String(DevicesList.length()));
-		//LCD_Frame.Main_Menu.init(DevicesList.at(0), lcd_currsor_coordinate(0, 0));
-		LCD_Frame.current_page = LCD_PAGE_MAIN_MENU;
-		Main_Menu.render();
+	while (!update_tray_list()) {
+		Dprintln("ERR#4353 No Hub on Server. Try Again");
+		lcd_print("No HUB on Server", LINE3, MIDDLE, 0);
+		delay(1000);
 	}
-	else {
-		Dprintln("ERR#4353 No Hub on Server");
-		lcd.clear();
-		lcd_print("AGRISYSTEM-IoTLab", LINE0, MIDDLE, 0);
-		lcd_print(String("HID = ") + HubID, LINE2, MIDDLE, 0);
-	}
+
+	Dprintln("DevicesList_length = " + String(DevicesList.length()));
+	//LCD_Frame.Main_Menu.init(DevicesList.at(0), lcd_currsor_coordinate(0, 0));
+	LCD_Frame.current_page = LCD_PAGE_MAIN_MENU;
+	Main_Menu.render();
 
 	RF.begin(RF_BAUDRATE);
 	RF.setTimeout(200);
@@ -2091,4 +2149,5 @@ void loop()
 	if (DevicesList.length() == 0) {
 		update_tray_list();
 	}
+	update_node_data(1000);
 }
